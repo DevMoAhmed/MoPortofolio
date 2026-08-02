@@ -57,9 +57,10 @@ function traceEdge(
 }
 
 /**
- * One arm. Flat silhouette, hairline outline, segment plates across
- * it, inlay down the spine. `width(t)` is the half-width at t, so each
- * rig keeps its own taper.
+ * One arm — built, not grown. The limb is cut into discrete plates
+ * with a visible gap and a pinned joint at every seam, so it reads as
+ * a manufactured actuator rather than a tentacle. `width(t)` is the
+ * half-width at t, so each rig keeps its own taper.
  */
 export function drawLimb(
   ctx: CanvasRenderingContext2D,
@@ -71,49 +72,104 @@ export function drawLimb(
 ): void {
   if (pts.length < 2) return;
   const hair = Math.max(0.8, unit * 0.013);
+  const joint: RGB = mixRGB(skin.glow, skin.fg, 0.3);
 
-  // 1 · the silhouette, one solid fill
-  ctx.beginPath();
-  traceEdge(ctx, pts, width, 1);
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const p = pts[i]!;
-    const w = width(p.t);
-    ctx.lineTo(p.x - p.nx * w, p.y - p.ny * w);
-  }
-  ctx.closePath();
-  ctx.fillStyle = rgba(skin.body, 1);
-  ctx.fill();
+  /** plate count — enough to read as segmented, few enough to read as parts */
+  const PLATES = 7;
+  const per = (pts.length - 1) / PLATES;
+  /** samples dropped at each seam; this is the gap between plates */
+  const gap = Math.max(0.34, per * 0.16);
 
-  // 2 · outline
-  ctx.beginPath();
-  traceEdge(ctx, pts, width, 1);
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const p = pts[i]!;
-    const w = width(p.t);
-    ctx.lineTo(p.x - p.nx * w, p.y - p.ny * w);
+  for (let s = 0; s < PLATES; s++) {
+    const from = s * per + (s === 0 ? 0 : gap);
+    const to = (s + 1) * per - (s === PLATES - 1 ? 0 : gap);
+    const slice: Sample[] = [];
+    for (let i = Math.ceil(from); i <= Math.floor(to); i++) slice.push(pts[i]!);
+    if (slice.length < 2) continue;
+
+    // the plate: flat fill, hairline edge, square ends — a part with a
+    // start and an end, not a length of hose
+    ctx.beginPath();
+    traceEdge(ctx, slice, width, 1);
+    for (let i = slice.length - 1; i >= 0; i--) {
+      const p = slice[i]!;
+      const w = width(p.t);
+      ctx.lineTo(p.x - p.nx * w, p.y - p.ny * w);
+    }
+    ctx.closePath();
+    ctx.fillStyle = rgba(skin.body, 1);
+    ctx.fill();
+    ctx.strokeStyle = rgba(skin.rim, 0.55 + emphasis * 0.45);
+    ctx.lineWidth = hair;
+    ctx.stroke();
+
+    // the actuator line: one inset stripe per plate, parallel to the arm
+    ctx.beginPath();
+    traceEdge(ctx, slice, width, 1, 0.44);
+    ctx.strokeStyle = rgba(joint, clamp((0.4 + emphasis * 0.4) * skin.strength, 0, 1));
+    ctx.lineWidth = hair;
+    ctx.stroke();
   }
-  ctx.closePath();
-  ctx.strokeStyle = rgba(skin.rim, 0.55 + emphasis * 0.45);
+
+  // the pinned joints, one per seam, sitting over the gap
   ctx.lineWidth = hair;
+  for (let s = 1; s < PLATES; s++) {
+    const i = clamp(Math.round(s * per), 0, pts.length - 1);
+    const p = pts[i]!;
+    const r = Math.max(1.2, width(p.t) * 0.5);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, TAU);
+    ctx.fillStyle = rgba(skin.bodyDeep, 1);
+    ctx.fill();
+    ctx.strokeStyle = rgba(joint, clamp((0.6 + emphasis * 0.4) * skin.strength, 0, 1));
+    ctx.stroke();
+  }
+}
+
+/**
+ * The run from a clamp to the branch it serves. Right-angled with a
+ * chamfered corner, the way a trace is routed — a straight diagonal
+ * across 200px reads as slack cable, and this animal has none.
+ */
+export function drawLead(
+  ctx: CanvasRenderingContext2D,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  unit: number,
+  skin: Skin,
+  emphasis = 0,
+): void {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  // break along the long axis first, so the corner lands away from both ends
+  const vertical = Math.abs(dy) > Math.abs(dx);
+  const corner = vertical ? { x: from.x, y: to.y } : { x: to.x, y: from.y };
+  const chamfer = Math.min(unit * 0.22, Math.abs(dx) * 0.5, Math.abs(dy) * 0.5);
+
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  if (chamfer > 1) {
+    // stop short of the corner, cut across it, then carry on
+    if (vertical) {
+      ctx.lineTo(corner.x, corner.y - Math.sign(dy) * chamfer);
+      ctx.lineTo(corner.x + Math.sign(dx) * chamfer, corner.y);
+    } else {
+      ctx.lineTo(corner.x - Math.sign(dx) * chamfer, corner.y);
+      ctx.lineTo(corner.x, corner.y + Math.sign(dy) * chamfer);
+    }
+  } else {
+    ctx.lineTo(corner.x, corner.y);
+  }
+  ctx.lineTo(to.x, to.y);
+  ctx.strokeStyle = rgba(skin.rim, 0.45 + emphasis * 0.5);
+  ctx.lineWidth = Math.max(0.7, unit * 0.011);
   ctx.stroke();
 
-  // 3 · suckers, in one row down the inner face of the arm — the
-  //     texture the silhouette reference is built from. They sit at a
-  //     fixed fraction of the local half-width, so the row tapers with
-  //     the limb instead of marching at one size to the tip.
-  const sucker: RGB = mixRGB(skin.glow, skin.fg, 0.3);
-  ctx.fillStyle = rgba(sucker, clamp((0.62 + emphasis * 0.38) * skin.strength, 0, 1));
-  const rows = Math.max(6, Math.round(pts.length * 0.42));
-  for (let r = 1; r < rows; r++) {
-    const i = Math.round((r / rows) * (pts.length - 1));
-    const p = pts[i]!;
-    const w = width(p.t);
-    const rad = w * 0.34;
-    if (rad < 0.5) continue;
-    ctx.beginPath();
-    ctx.arc(p.x + p.nx * w * 0.44, p.y + p.ny * w * 0.44, rad, 0, TAU);
-    ctx.fill();
-  }
+  // the pad it lands on
+  ctx.beginPath();
+  ctx.arc(to.x, to.y, Math.max(1.3, unit * 0.02), 0, TAU);
+  ctx.fillStyle = rgba(skin.glow, clamp((0.7 + emphasis * 0.3) * skin.strength, 0, 1));
+  ctx.fill();
 }
 
 /** a packet in flight, u ∈ [0,1) along the arm */

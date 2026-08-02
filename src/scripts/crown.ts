@@ -22,7 +22,7 @@ import {
   lerpAngle,
   readSkin,
 } from './palette';
-import { type Sample, drawClamp, drawLimb, drawMantle, drawPacket } from './rig';
+import { type Sample, drawClamp, drawLead, drawLimb, drawMantle, drawPacket } from './rig';
 
 const SEGMENTS = 26;
 /** arms carrying a packet; not all eight, or it reads as a chase light */
@@ -35,7 +35,10 @@ class Arm {
   el: HTMLElement;
   anchor: HTMLElement;
   root: Vec = { x: 0, y: 0 };
+  /** where the arm itself ends — on the reach circle, same for all eight */
   target: Vec = { x: 0, y: 0 };
+  /** where the branch is; the lead line covers the gap */
+  label: Vec = { x: 0, y: 0 };
   angles: number[] = [];
   pos: Vec[] = [];
   /** 0 resting → 1 hovered/focused */
@@ -147,10 +150,12 @@ class Arm {
     drawLimb(ctx, pts, (t) => base * Math.pow(1 - t, 1.5) + unit * 0.02, skin, unit, this.emphasis);
     this.cache = pts;
 
-    // the clamp lands on the branch — square it to the arm's last segment
-    // so the contact reads as fitted, not dropped on
+    // Every arm stops on the same circle, so all eight are one length.
+    // The clamp sits at that stop, squared to the arm, and a lead line
+    // carries the last stretch to the branch it belongs to.
     const tip = pts[SEGMENTS - 1]!;
     const prev = pts[SEGMENTS - 2] ?? tip;
+    drawLead(ctx, tip, this.label, unit, skin, this.emphasis);
     drawClamp(
       ctx,
       tip.x,
@@ -227,8 +232,24 @@ export function mountCrown(root: HTMLElement): void {
 
     for (const arm of arms) {
       const ar = arm.anchor.getBoundingClientRect();
-      arm.target.x = ar.left - base.left + ar.width / 2;
-      arm.target.y = ar.top - base.top + ar.height / 2;
+      arm.label.x = ar.left - base.left + ar.width / 2;
+      arm.label.y = ar.top - base.top + ar.height / 2;
+    }
+
+    // Eight arms of one length. Every arm stops on the same circle around
+    // the mantle, sized off the nearest branch so no arm has to stretch,
+    // and the lead line covers whatever is left to its own label. Aiming
+    // the arms straight at the labels made four short arms and four long
+    // ones, which read as a limp rather than a machine.
+    const reach =
+      Math.min(...arms.map((a) => Math.hypot(a.label.x - hubPt.x, a.label.y - hubPt.y))) *
+      0.82;
+    for (const arm of arms) {
+      const dx = arm.label.x - hubPt.x;
+      const dy = arm.label.y - hubPt.y;
+      const d = Math.hypot(dx, dy) || 1;
+      arm.target.x = hubPt.x + (dx / d) * reach;
+      arm.target.y = hubPt.y + (dy / d) * reach;
     }
 
     // Order the roots along the crown by where their branch sits, so no
@@ -241,7 +262,7 @@ export function mountCrown(root: HTMLElement): void {
     const world = (p: number) => Math.atan2(-Math.cos(p), Math.sin(p));
 
     const order = arms
-      .map((arm, i) => ({ i, key: phi(arm.target) }))
+      .map((arm, i) => ({ i, key: phi(arm.label) }))
       .sort((a, b) => a.key - b.key);
 
     // The launch arc is derived from where the branches actually are,

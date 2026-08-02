@@ -74,15 +74,20 @@ the DOM and grows one tentacle to each. So:
 
 Both canvases draw in the same language, which lives in `rig.ts`, and it is
 **flat 2D**: no gradients, no radial shading, no glow sprites, no rim lights, no
-composite blending. A solid mantle with **one aperture instead of two eyes**,
-limbs that are a solid tapering silhouette with a hairline outline and one row
-of suckers down the inner face, a clamp where the arm terminates, and packets
-travelling the arm. `crown.ts` and `dock.ts` only decide where the arms *go*.
+composite blending. A solid mantle with **one aperture instead of two eyes**;
+limbs built rather than grown — cut into seven plates with a visible gap and a
+pinned joint at every seam; a clamp where the arm terminates; a right-angled
+lead running from that clamp to the branch it serves; and packets travelling
+the arm. `crown.ts` and `dock.ts` only decide where the arms *go*.
+
+**All eight arms are one length.** They stop on a shared circle around the
+mantle rather than each stretching to its own label, because four short arms and
+four long ones read as a limp. The lead line covers whatever is left.
 
 Nothing idles. The arms settle into a pose and hold it — no breathing, no sway,
 no twinkle. The only thing that moves on this animal is a packet.
 
-- Move a branch in CSS and its arm follows. There are no hardcoded coordinates.
+- Move a branch in CSS and its arm and lead follow. No hardcoded coordinates.
 - Reorder or add a branch in `src/data/site.ts` and the fan re-sorts itself so
   no two arms cross.
 - Hovering a branch tightens its arm, brightens its inlay and clamp, and the

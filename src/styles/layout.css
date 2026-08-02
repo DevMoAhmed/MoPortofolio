@@ -254,10 +254,10 @@
   grid-template-columns: minmax(0, 1fr) clamp(178px, 17vw, 270px) minmax(0, 1fr);
   grid-template-rows: repeat(4, minmax(0, auto));
   column-gap: clamp(var(--s-4), 3.5vw, var(--s-6));
-  row-gap: var(--s-6);
+  row-gap: var(--s-3);
   align-items: center;
-  margin-top: var(--s-6);
-  padding-block: var(--s-4) var(--s-6);
+  margin-top: var(--s-5);
+  padding-block: var(--s-3) var(--s-5);
 }
 
 .crown__canvas {
@@ -288,7 +288,7 @@
   z-index: 1;
   grid-row: var(--row);
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s-1);
   padding-block: var(--s-2);
   transition: translate var(--d-mid) var(--e-out);
 }
@@ -335,19 +335,21 @@
 
 .branch__name {
   font-family: var(--f-display);
-  font-size: var(--t-2);
-  line-height: 1;
+  font-size: var(--t-1);
+  line-height: 1.02;
   letter-spacing: -0.014em;
   transition: color var(--d-mid) var(--e-out);
 }
 
+/* held tight: the animal is only as tall as this column of text, so
+   every line saved here is a shorter arm */
 .branch__note {
   color: var(--fg-2);
   font-size: var(--t--1);
-  line-height: 1.5;
+  line-height: 1.42;
   letter-spacing: 0;
   text-transform: none;
-  max-width: 40ch;
+  max-width: 34ch;
 }
 
 .branch__stack {
