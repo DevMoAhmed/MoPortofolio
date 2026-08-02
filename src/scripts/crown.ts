@@ -38,8 +38,6 @@ class Arm {
   target: Vec = { x: 0, y: 0 };
   angles: number[] = [];
   pos: Vec[] = [];
-  phase: number;
-  sway: number;
   /** 0 resting → 1 hovered/focused */
   emphasis = 0;
   wanted = 0;
@@ -51,18 +49,16 @@ class Arm {
   /** half-width at the crown; narrower when the arms share a tight lane */
   girth = 12;
 
-  constructor(el: HTMLElement, anchor: HTMLElement, index: number) {
+  constructor(el: HTMLElement, anchor: HTMLElement) {
     this.el = el;
     this.anchor = anchor;
-    this.phase = index * 0.83 + (index % 3) * 0.51;
-    this.sway = 0.72 + ((index * 31) % 9) / 22;
     for (let i = 0; i < SEGMENTS; i++) {
       this.angles.push(0);
       this.pos.push({ x: 0, y: 0 });
     }
   }
 
-  update(t: number, dt: number, unit: number) {
+  update(dt: number, unit: number) {
     this.emphasis += (this.wanted - this.emphasis) * clamp(dt * 5, 0, 1);
 
     const dx = this.target.x - this.root.x;
@@ -82,7 +78,7 @@ class Arm {
     // the smooth chain cuts the via corner, so the real arc sits between
     // the straight line and the two legs. Overshoot here and the tip
     // folds back on itself.
-    this.reachLen = lerp(dist, legA + legB, 0.78) * (1 - this.emphasis * 0.03);
+    this.reachLen = lerp(dist, legA + legB, 0.94) * (1 - this.emphasis * 0.03);
     const segLen = this.reachLen / SEGMENTS;
 
     let px = this.root.x;
@@ -90,21 +86,17 @@ class Arm {
 
     for (let i = 0; i < SEGMENTS; i++) {
       const k = i / (SEGMENTS - 1);
-      const breathe =
-        Math.sin(t * this.sway + this.phase - k * 2.6) *
-        (0.014 + k * 0.06) *
-        (1 - this.emphasis * 0.5);
 
       // the aim point slides from the via to the label as we travel out
-      const handover = smoothstep(0.3, 0.74, k);
+      const handover = smoothstep(0.42, 0.86, k);
       const aimX = lerp(viaX, this.target.x, handover);
       const aimY = lerp(viaY, this.target.y, handover);
 
       const prev = this.pos[i]!;
       const toAim = Math.atan2(aimY - prev.y, aimX - prev.x);
       // leaves the crown along its fan direction, then hands over
-      const commit = smoothstep(0, 0.3, k) * (0.86 + this.emphasis * 0.12);
-      const want = lerpAngle(this.fan + breathe, toAim, commit);
+      const commit = smoothstep(0.08, 0.62, k) * (0.86 + this.emphasis * 0.12);
+      const want = lerpAngle(this.fan, toAim, commit);
 
       this.angles[i] = lerpAngle(this.angles[i]!, want, clamp(dt * 7, 0, 1));
 
@@ -114,7 +106,7 @@ class Arm {
         const prevA = this.angles[i - 1]!;
         let d = ((this.angles[i]! - prevA + Math.PI) % TAU) - Math.PI;
         if (d < -Math.PI) d += TAU;
-        const LIMIT = 0.4;
+        const LIMIT = 0.26;
         if (d > LIMIT) this.angles[i] = prevA + LIMIT;
         else if (d < -LIMIT) this.angles[i] = prevA - LIMIT;
       }
@@ -197,9 +189,9 @@ export function mountCrown(root: HTMLElement): void {
   let skin = readSkin();
 
   const arms: Arm[] = [];
-  for (const [i, el] of branches.entries()) {
+  for (const el of branches) {
     const anchor = el.querySelector<HTMLElement>('.branch__anchor');
-    if (anchor) arms.push(new Arm(el, anchor, i));
+    if (anchor) arms.push(new Arm(el, anchor));
   }
 
   let w = 0;
@@ -311,11 +303,7 @@ export function mountCrown(root: HTMLElement): void {
         drawPacket(ctx, arm.cache, (now / 3400 + slot * 0.19) % 1, skin, unit);
       });
     }
-    drawMantle(ctx, hubPt.x, hubPt.y, unit, skin, {
-      t: clock,
-      reduced,
-      lookX: lookX(),
-    });
+    drawMantle(ctx, hubPt.x, hubPt.y, unit, skin, { lookX: lookX() });
   }
 
   let raf = 0;
@@ -328,7 +316,7 @@ export function mountCrown(root: HTMLElement): void {
     last = now;
     clock += dt;
 
-    for (const arm of arms) arm.update(clock, dt, unit);
+    for (const arm of arms) arm.update(dt, unit);
     compose(now);
 
     if (onScreen && !reduced) raf = requestAnimationFrame(frame);
@@ -337,7 +325,7 @@ export function mountCrown(root: HTMLElement): void {
   function still() {
     // settle the chains, then draw one composed pose
     for (let s = 0; s < 90; s++) {
-      for (const arm of arms) arm.update(clock, 1 / 60, unit);
+      for (const arm of arms) arm.update(1 / 60, unit);
     }
     compose(0);
   }

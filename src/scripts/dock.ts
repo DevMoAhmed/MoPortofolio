@@ -54,28 +54,25 @@ class Limb {
   path: Sample[] = [];
   emphasis = 0;
   wanted = 0;
-  phase: number;
   /** deterministic jitter so eight arms are not eight copies */
   jitter: number;
 
   constructor(port: HTMLElement, index: number) {
     this.port = port;
-    this.phase = index * 0.79 + (index % 3) * 0.4;
     this.jitter = ((index * 37) % 11) / 11;
   }
 
-  shape(t: number, reduced: boolean) {
-    const sway = reduced ? 0 : Math.sin(t * 0.9 + this.phase) * (3 + this.jitter * 2);
+  shape() {
     const tighten = 1 - this.emphasis * 0.34;
     const bow = this.bow * tighten;
     const dx = this.target.x - this.root.x;
     const dy = this.target.y - this.root.y;
     const midY = this.root.y + dy * (0.5 + this.jitter * 0.08);
-    const midX = this.root.x + dx * (0.62 + this.jitter * 0.1) + this.dir * bow + sway;
+    const midX = this.root.x + dx * (0.62 + this.jitter * 0.1) + this.dir * bow;
 
     const A: [Vec, Vec, Vec, Vec] = [
       this.root,
-      { x: this.root.x + this.dir * bow * 0.34 + sway * 0.4, y: this.root.y + (midY - this.root.y) * 0.44 },
+      { x: this.root.x + this.dir * bow * 0.34, y: this.root.y + (midY - this.root.y) * 0.44 },
       { x: midX + this.dir * bow * 0.5, y: midY - (midY - this.root.y) * 0.3 },
       { x: midX, y: midY },
     ];
@@ -241,7 +238,7 @@ export function mountDock(root: HTMLElement): void {
   function render(dt: number) {
     for (const limb of limbs) {
       limb.emphasis += (limb.wanted - limb.emphasis) * clamp(dt * 5, 0, 1);
-      limb.shape(clock, reduced);
+      limb.shape();
     }
     ctx.clearRect(0, 0, w, h);
     drawRail();
@@ -256,8 +253,6 @@ export function mountDock(root: HTMLElement): void {
       });
     }
     drawMantle(ctx, hubPt.x, hubPt.y, unit, skin, {
-      t: clock,
-      reduced,
       lookX: look ? clamp((look.x - hubPt.x) / (w * 0.5 || 1), -1, 1) : 0,
     });
   }

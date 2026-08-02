@@ -72,11 +72,15 @@ four below, arms radiating out of the skirt in both directions. Each of the
 eight branches has a `.branch__anchor`, and `crown.ts` reads those boxes from
 the DOM and grows one tentacle to each. So:
 
-Both canvases draw in the same language, which lives in `rig.ts`: a machined
-mantle with **one aperture instead of two eyes**, limbs that taper with a rim
-light on the lit side, a photophore inlay running the full length of every arm
-tacked down with vias, a clamp where the arm terminates, and packets travelling
-the inlay. `crown.ts` and `dock.ts` only decide where the arms *go*.
+Both canvases draw in the same language, which lives in `rig.ts`, and it is
+**flat 2D**: no gradients, no radial shading, no glow sprites, no rim lights, no
+composite blending. A solid mantle with **one aperture instead of two eyes**,
+limbs that are a solid tapering silhouette with a hairline outline and one row
+of suckers down the inner face, a clamp where the arm terminates, and packets
+travelling the arm. `crown.ts` and `dock.ts` only decide where the arms *go*.
+
+Nothing idles. The arms settle into a pose and hold it — no breathing, no sway,
+no twinkle. The only thing that moves on this animal is a packet.
 
 - Move a branch in CSS and its arm follows. There are no hardcoded coordinates.
 - Reorder or add a branch in `src/data/site.ts` and the fan re-sorts itself so
