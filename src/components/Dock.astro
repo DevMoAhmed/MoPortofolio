@@ -1,0 +1,33 @@
+---
+/* The hero rig: mantle close, arms short, one clamp per section.
+   Eight ports, eight sections — the same eight the arm nav lists,
+   so the animal is the site's index rather than a picture of one.
+   Works with JS off: the ports are plain anchors and the rail is a
+   border; only the tentacles need the canvas. */
+const ports = [
+  { id: 'surface', label: 'Surface' },
+  { id: 'arms', label: 'Eight arms' },
+  { id: 'polymorphism', label: 'Polymorphism' },
+  { id: 'work', label: 'Work' },
+  { id: 'dive', label: 'Dive' },
+  { id: 'ink', label: 'Ink' },
+  { id: 'now', label: 'Now' },
+  { id: 'signal', label: 'Signal' },
+];
+---
+
+<div class="dock" data-dock>
+  <canvas class="dock__canvas" aria-hidden="true"></canvas>
+  <div class="dock__hub" aria-hidden="true"></div>
+
+  <nav class="dock__ports" aria-label="Sections">
+    {
+      ports.map((p, i) => (
+        <a class="dock__port" href={`#${p.id}`}>
+          <span class="dock__no">{String(i + 1).padStart(2, '0')}</span>
+          <span class="sr">{p.label}</span>
+        </a>
+      ))
+    }
+  </nav>
+</div>

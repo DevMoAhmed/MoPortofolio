@@ -1,0 +1,43 @@
+---
+import Marker from './Marker.astro';
+import { person, links } from '../data/site';
+
+const year = new Date().getFullYear();
+---
+
+<section class="band signal" id="signal">
+  <div class="band__inner">
+    <Marker depth="4000 m" name="Signal" />
+
+    <div class="rise">
+      <p class="lede" style="margin-bottom: var(--s-5)">
+        Bolitaena pygmaea carries a ring of light around its mouth so it can be
+        found in water with no sun in it. Same idea.
+      </p>
+
+      <a class="signal__mail" href={`mailto:${person.email}`}>
+        <span class="photophore" aria-hidden="true"></span>
+        <span>{person.email}</span>
+      </a>
+
+      {
+        links.length > 1 && (
+          <div class="links">
+            {links.slice(1).map((l) => (
+              <a class="link" href={l.href} rel="me noopener">
+                {l.label}
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </div>
+
+    <div class="foot">
+      <span class="mono">{person.place} · {person.tz}</span>
+      <span class="mono">
+        Built by hand — Astro, canvas, no component library · {year}
+      </span>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,60 @@
+---
+import Marker from './Marker.astro';
+import { projects } from '../data/site';
+---
+
+<section class="band" id="work">
+  <div class="band__inner">
+    <Marker depth="1200 m" name="Work" />
+
+    <div class="rise" style="margin-bottom: var(--s-6)">
+      <h2>Things that <em>run</em></h2>
+      <p class="lede" style="margin-top: var(--s-4)">
+        Selected, not exhaustive. Ordered by how much of it is still in
+        production.
+      </p>
+    </div>
+
+    <div class="work">
+      {
+        projects.map((p) => (
+          <article class={`job rise${p.lead ? ' job--lead' : ''}`}>
+            <span class="job__no">{p.no}</span>
+
+            <div class="job__head">
+              <h3>{p.title}</h3>
+              <span class="job__where">{p.where}</span>
+            </div>
+
+            <div class="job__body">
+              <div>
+                {p.body.map((line) => (
+                  <p set:html={line} />
+                ))}
+                <div class="job__stack">
+                  {p.stack.map((s) => (
+                    <span class="tag">{s}</span>
+                  ))}
+                </div>
+              </div>
+
+              {p.readout && (
+                <div class="readout">
+                  {p.readout.map((r) => (
+                    <div class="readout__cell">
+                      <span class="readout__val">
+                        {r.val}
+                        {r.unit && <sup>{r.unit}</sup>}
+                      </span>
+                      <span class="readout__key">{r.key}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>

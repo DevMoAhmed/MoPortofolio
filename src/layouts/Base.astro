@@ -1,0 +1,57 @@
+---
+import '@fontsource/instrument-serif/latin-400.css';
+import '@fontsource/instrument-serif/latin-400-italic.css';
+import '@fontsource-variable/archivo/wght.css';
+import '@fontsource/ibm-plex-mono/latin-400.css';
+import '@fontsource/ibm-plex-mono/latin-500.css';
+
+import '../styles/tokens.css';
+import '../styles/base.css';
+import '../styles/layout.css';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://example.com');
+---
+
+<!doctype html>
+<html lang="en" data-skin="abyss">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical.href} />
+
+    <meta property="og:type" content="profile" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical.href} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <meta name="theme-color" content="#05080c" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    {/* restore the visitor's chosen skin before first paint */}
+    <script is:inline>
+      try {
+        var s = localStorage.getItem('octo:skin');
+        if (s && ['abyss', 'camouflage', 'ink', 'flash'].indexOf(s) > -1) {
+          document.documentElement.dataset.skin = s;
+        }
+      } catch (e) {}
+    </script>
+  </head>
+
+  <body>
+    <a class="skip" href="#surface">Skip to content</a>
+    <slot />
+    <script>
+      import '../scripts/site';
+    </script>
+  </body>
+</html>

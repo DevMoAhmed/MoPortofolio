@@ -1,0 +1,35 @@
+---
+import Base from '../layouts/Base.astro';
+import Rail from '../components/Rail.astro';
+import ArmNav from '../components/ArmNav.astro';
+import Chromatophores from '../components/Chromatophores.astro';
+import Surface from '../components/Surface.astro';
+import Arms from '../components/Arms.astro';
+import Polymorphism from '../components/Polymorphism.astro';
+import Work from '../components/Work.astro';
+import Dive from '../components/Dive.astro';
+import Ink from '../components/Ink.astro';
+import Now from '../components/Now.astro';
+import Signal from '../components/Signal.astro';
+import { person } from '../data/site';
+---
+
+<Base
+  title={`${person.name} — ${person.tagline}`}
+  description="Electrical engineer turned data & automation specialist. Pipelines, LLM integration, Flutter, power electronics, game systems — and graphite portraits since 2015."
+>
+  <Rail />
+  <ArmNav />
+  <Chromatophores />
+
+  <main class="shell">
+    <Surface />
+    <Arms />
+    <Polymorphism />
+    <Work />
+    <Dive />
+    <Ink />
+    <Now />
+    <Signal />
+  </main>
+</Base>

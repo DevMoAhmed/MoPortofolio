@@ -1,0 +1,65 @@
+---
+import Marker from './Marker.astro';
+import { learning, heading, languages } from '../data/site';
+---
+
+<section class="band" id="now">
+  <div class="band__inner">
+    <Marker depth="3500 m" name="Now" />
+
+    <div class="rise">
+      <h2>In the water <em>right now</em></h2>
+    </div>
+
+    <div class="now">
+      <div>
+        <p class="mono" style="margin-bottom: var(--s-4)">Learning · self-rated</p>
+        <ul class="stack-list">
+          {
+            learning.map((l) => (
+              <li>
+                <span class="stack-list__dot" style={`--level:${l.level}`} aria-hidden="true"></span>
+                <span>
+                  <span class="stack-list__what">{l.what}</span>
+                  <span class="mono" style="display:block; letter-spacing:.04em; text-transform:none">
+                    {l.note}
+                  </span>
+                </span>
+                <span class="meter" role="img" aria-label={`level ${l.level} of 4`}>
+                  {[1, 2, 3, 4].map((n) => (
+                    <i class={n <= l.level ? 'on' : ''}></i>
+                  ))}
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+
+        <p class="mono" style="margin-top: var(--s-6); margin-bottom: var(--s-3)">Languages</p>
+        <div class="job__stack">
+          {
+            languages.map((l) => (
+              <span class="tag">
+                {l.name} — {l.level}
+              </span>
+            ))
+          }
+        </div>
+      </div>
+
+      <div>
+        <p class="mono" style="margin-bottom: var(--s-4)">Heading</p>
+        <ul class="heading-list">
+          {
+            heading.map((h) => (
+              <li>
+                <strong>{h.title}</strong>
+                <span>{h.note}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>

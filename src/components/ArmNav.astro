@@ -1,0 +1,24 @@
+---
+const items = [
+  { id: 'surface', label: 'Surface' },
+  { id: 'arms', label: 'Arms' },
+  { id: 'polymorphism', label: 'Polymorph' },
+  { id: 'work', label: 'Work' },
+  { id: 'dive', label: 'Dive' },
+  { id: 'ink', label: 'Ink' },
+  { id: 'now', label: 'Now' },
+  { id: 'signal', label: 'Signal' },
+];
+---
+
+<!-- Eight sections, eight arms. -->
+<nav class="armnav" aria-label="Sections">
+  {
+    items.map((it) => (
+      <a class="armnav__item" href={`#${it.id}`} aria-current="false">
+        <span class="armnav__label">{it.label}</span>
+        <span class="armnav__dash"></span>
+      </a>
+    ))
+  }
+</nav>

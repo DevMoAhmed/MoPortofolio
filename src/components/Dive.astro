@@ -1,0 +1,30 @@
+---
+import Marker from './Marker.astro';
+import { dive } from '../data/site';
+---
+
+<section class="band" id="dive">
+  <div class="band__inner">
+    <Marker depth="2000 m" name="Dive profile" />
+
+    <div class="rise">
+      <h2>Descent <em>log</em></h2>
+      <p class="lede" style="margin-top: var(--s-4)">
+        Not a career ladder. A dive profile — each step sideways is a change of
+        discipline, and none of the earlier ones were abandoned.
+      </p>
+    </div>
+
+    <div class="dive">
+      {
+        dive.map((s) => (
+          <div class={`stop rise${s.now ? ' stop--now' : ''}`} style={`--x:${s.x}`}>
+            <span class="stop__year">{s.year}</span>
+            <h3 class="stop__what">{s.what}</h3>
+            {s.note && <p class="stop__note">{s.note}</p>}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>

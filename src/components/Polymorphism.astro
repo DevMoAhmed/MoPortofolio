@@ -1,0 +1,92 @@
+---
+import Marker from './Marker.astro';
+import { implementations, interfaceCode } from '../data/site';
+---
+
+<section class="band" id="polymorphism">
+  <div class="band__inner">
+    <Marker depth="600 m" name="Polymorphism" />
+
+    <div class="rise" style="margin-bottom: var(--s-7)">
+      <h2>One interface.<br /><em>Many implementations.</em></h2>
+      <p class="lede" style="margin-top: var(--s-4)">
+        Polymorphism is not a metaphor I picked because it sounds clever. It is
+        the accurate description: the same three methods — read, build, ship —
+        with a different body depending on which domain called them.
+      </p>
+    </div>
+
+    <pre class="code code--iface rise" aria-label="Shared interface"><code>{
+      interfaceCode.map((line) => (
+        <span class="code__line" set:html={line} />
+      ))
+    }</code></pre>
+
+    <div class="poly" style="margin-top: var(--s-6)">
+      <div class="poly__tabs" role="tablist" aria-label="Implementations">
+        {
+          implementations.map((impl, i) => (
+            <button
+              class="poly__tab"
+              type="button"
+              role="tab"
+              id={`tab-${impl.id}`}
+              data-impl={impl.id}
+              aria-selected={i === 0 ? 'true' : 'false'}
+              aria-controls={`panel-${impl.id}`}
+              tabindex={i === 0 ? 0 : -1}
+            >
+              {impl.label}
+            </button>
+          ))
+        }
+      </div>
+
+      <div>
+        {
+          implementations.map((impl, i) => (
+            <pre
+              class="code poly__code"
+              data-impl={impl.id}
+              hidden={i !== 0}
+              aria-label={`${impl.label} implementation`}
+            ><code>{impl.code.map((line) => (
+              <span class="code__line" set:html={line} />
+            ))}</code></pre>
+          ))
+        }
+      </div>
+
+      <div>
+        {
+          implementations.map((impl, i) => (
+            <div
+              class="poly__panel"
+              role="tabpanel"
+              id={`panel-${impl.id}`}
+              data-impl={impl.id}
+              aria-labelledby={`tab-${impl.id}`}
+              hidden={i !== 0}
+              tabindex="0"
+            >
+              <h3>{impl.heading}</h3>
+              <div class="prose">
+                {impl.body.map((p) => (
+                  <p set:html={p} />
+                ))}
+              </div>
+              <dl class="spec">
+                {impl.spec.map(([k, v]) => (
+                  <>
+                    <dt>{k}</dt>
+                    <dd>{v}</dd>
+                  </>
+                ))}
+              </dl>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</section>

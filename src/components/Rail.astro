@@ -1,0 +1,18 @@
+---
+import { person } from '../data/site';
+---
+
+<!-- The depth gauge. Scroll position is reported in metres, because
+     the page is a descent, not a scroll. -->
+<aside class="rail" aria-hidden="true">
+  <span class="rail__brand">{person.short}</span>
+
+  <div class="rail__gauge">
+    <div class="rail__ticks">
+      {Array.from({ length: 9 }).map(() => <i class="rail__tick"></i>)}
+    </div>
+    <span class="rail__diver"></span>
+  </div>
+
+  <span class="rail__read">0 m</span>
+</aside>

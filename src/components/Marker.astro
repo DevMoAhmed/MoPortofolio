@@ -1,0 +1,13 @@
+---
+interface Props {
+  depth: string;
+  name: string;
+}
+const { depth, name } = Astro.props;
+---
+
+<div class="marker">
+  <span class="marker__depth">{depth}</span>
+  <span class="marker__name">{name}</span>
+  <span class="marker__line"></span>
+</div>

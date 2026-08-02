@@ -1,0 +1,165 @@
+/* ============================================================
+   tokens.css — the design system
+   ------------------------------------------------------------
+   Two deliberate rules govern everything here:
+
+   1. NOTHING is on an 8pt grid. The spacing scale is a 1.5
+      ratio (6 / 9 / 14 / 21 / 32 / 48 / 72 / 108 / 162), so
+      rhythm reads as composed rather than snapped.
+   2. Radius vocabulary is 0px / 1px / 2px, plus one organic
+      blob reserved for chromatophores. No soft cards, no
+      drop shadows anywhere. Depth comes from hairlines and
+      bioluminescent glow — glow is diegetic here, not decor.
+
+   Colour lives entirely in SKINS (see bottom of file). Every
+   surface reads from --bg / --fg / --glow / --flare, so the
+   whole site — canvas included — morphs when the skin does.
+   ============================================================ */
+
+:root {
+  /* ---- spacing: 1.5 ratio, off-grid on purpose ------------ */
+  --s-1: 0.375rem;   /*  6px */
+  --s-2: 0.5625rem;  /*  9px */
+  --s-3: 0.875rem;   /* 14px */
+  --s-4: 1.3125rem;  /* 21px */
+  --s-5: 2rem;       /* 32px */
+  --s-6: 3rem;       /* 48px */
+  --s-7: 4.5rem;     /* 72px */
+  --s-8: 6.75rem;    /* 108px */
+  --s-9: 10.125rem;  /* 162px */
+
+  /* ---- type scale: fluid, ~1.32 ratio --------------------- */
+  --t--2: clamp(0.625rem, 0.61rem + 0.07vw, 0.6875rem);
+  --t--1: clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem);
+  --t-0: clamp(0.9375rem, 0.9rem + 0.22vw, 1.0625rem);
+  --t-1: clamp(1.125rem, 1.02rem + 0.5vw, 1.375rem);
+  --t-2: clamp(1.4375rem, 1.2rem + 1.05vw, 2rem);
+  --t-3: clamp(1.9375rem, 1.4rem + 2.4vw, 3.125rem);
+  --t-4: clamp(2.5rem, 1.35rem + 4.9vw, 5rem);
+  --t-5: clamp(3.25rem, 0.6rem + 10.5vw, 8.5rem);
+
+  /* ---- radius: sharp. that is the whole vocabulary -------- */
+  --r-0: 0px;
+  --r-1: 1px;
+  --r-2: 2px;
+  --r-pill: 100vmax;
+  /* the single organic shape in the system — chromatophores only */
+  --r-blob: 58% 42% 47% 53% / 51% 44% 56% 49%;
+
+  /* ---- line weights -------------------------------------- */
+  --hair: 1px;
+  --rule: 2px;
+
+  /* ---- typefaces: no Inter, no system-ui-for-everything --- */
+  --f-display: 'Instrument Serif', 'Iowan Old Style', 'Palatino', Georgia, serif;
+  --f-sans: 'Archivo Variable', 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --f-mono: 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, monospace;
+
+  /* ---- motion: one easing family, no linear fades --------- */
+  --e-out: cubic-bezier(0.16, 0.84, 0.28, 1);
+  --e-in-out: cubic-bezier(0.68, 0.02, 0.24, 0.98);
+  --e-drift: cubic-bezier(0.4, 0.1, 0.2, 1);
+  --d-fast: 180ms;
+  --d-mid: 420ms;
+  --d-slow: 900ms;
+  --d-drift: 2400ms;
+
+  /* ---- layout -------------------------------------------- */
+  --rail: 4.5rem;          /* fixed depth gauge on the left  */
+  --measure: 62ch;         /* prose measure                   */
+  --page-max: 92rem;
+  --gut: clamp(1.3125rem, 4vw, 4.5rem);
+
+  /* ---- z ------------------------------------------------- */
+  --z-canvas: 0;
+  --z-content: 10;
+  --z-rail: 40;
+  --z-morph: 50;
+
+  /* film grain — one inline SVG, no network request */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   SKINS — polymorphism, literally.
+   Same markup, same canvas, four implementations. Each skin is
+   a real cephalopod behaviour, not a colour mood.
+   ============================================================ */
+
+/* ABYSS — 4000 m. Photophore teal against blue-black water. */
+:root,
+:root[data-skin='abyss'] {
+  color-scheme: dark;
+  --bg: #05080c;
+  --bg-2: #080d14;
+  --bg-3: #0c1522;
+  --fg: #e4ebef;
+  --fg-2: #8b9ca7;
+  /* fg-3 carries real mono labels, so it is held at ≥ 4.5:1 on --bg
+     in every skin — not chosen by eye */
+  --fg-3: #75858f;
+  --glow: #37e0bd;
+  --flare: #ff6a3d;
+  --grain-op: 0.055;
+  --glow-strength: 1;
+  --canvas-op: 1;
+}
+
+/* CAMOUFLAGE — mimic octopus flattened over lit sand. */
+:root[data-skin='camouflage'] {
+  color-scheme: light;
+  --bg: #e9e2d4;
+  --bg-2: #e0d7c6;
+  --bg-3: #d3c8b2;
+  --fg: #1f1a13;
+  --fg-2: #5b5243;
+  --fg-3: #655d4e;
+  --glow: #0d6a56;
+  --flare: #a3380f;
+  --grain-op: 0.09;
+  --glow-strength: 0.45;
+  --canvas-op: 0.72;
+}
+
+/* INK — the cloud left behind. Sepia-black, dull gold. */
+:root[data-skin='ink'] {
+  color-scheme: dark;
+  --bg: #0a0908;
+  --bg-2: #100e0b;
+  --bg-3: #191510;
+  --fg: #f1ede5;
+  --fg-2: #9d9789;
+  --fg-3: #847c6d;
+  --glow: #c9b691;
+  --flare: #e6d3a4;
+  --grain-op: 0.11;
+  --glow-strength: 0.7;
+  --canvas-op: 0.92;
+}
+
+/* FLASH — deimatic display. Threatened, all chromatophores fired. */
+:root[data-skin='flash'] {
+  color-scheme: dark;
+  --bg: #0f040b;
+  --bg-2: #170610;
+  --bg-3: #230a17;
+  --fg: #ffeef5;
+  --fg-2: #c1899f;
+  --fg-3: #a06b86;
+  --glow: #ffd63d;
+  --flare: #ff2d6f;
+  --grain-op: 0.07;
+  --glow-strength: 1.25;
+  --canvas-op: 1;
+}
+
+/* ---- derived tokens: computed from the skin, never hardcoded */
+:root {
+  --line: color-mix(in oklab, var(--fg) 14%, transparent);
+  --line-soft: color-mix(in oklab, var(--fg) 7%, transparent);
+  --line-loud: color-mix(in oklab, var(--fg) 30%, transparent);
+  --glow-dim: color-mix(in oklab, var(--glow) 26%, transparent);
+  --glow-wash: color-mix(in oklab, var(--glow) 9%, transparent);
+  --flare-dim: color-mix(in oklab, var(--flare) 30%, transparent);
+  --selection: color-mix(in oklab, var(--glow) 34%, transparent);
+}

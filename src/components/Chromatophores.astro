@@ -1,0 +1,29 @@
+---
+// Four real cephalopod skin states. Switching one re-tints the whole
+// site AND the animal — the same object, a different implementation.
+const cells = [
+  { id: 'abyss', title: 'Abyss — 4000 m, photophores lit' },
+  { id: 'camouflage', title: 'Camouflage — flattened over lit sand' },
+  { id: 'ink', title: 'Ink — the cloud left behind' },
+  { id: 'flash', title: 'Flash — deimatic display, all chromatophores fired' },
+];
+---
+
+<div class="chromo">
+  <span class="chromo__legend">Skin</span>
+  <div class="chromo__set" role="group" aria-label="Colour skin">
+    {
+      cells.map((c) => (
+        <button
+          class="chromo__cell"
+          type="button"
+          data-cell={c.id}
+          aria-pressed={c.id === 'abyss' ? 'true' : 'false'}
+          title={c.title}
+        >
+          <span class="sr">{c.title}</span>
+        </button>
+      ))
+    }
+  </div>
+</div>

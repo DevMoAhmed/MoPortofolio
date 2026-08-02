@@ -1,0 +1,51 @@
+---
+import Marker from './Marker.astro';
+import { arms } from '../data/site';
+
+const half = Math.ceil(arms.length / 2);
+---
+
+<section class="band" id="arms">
+  <div class="band__inner">
+    <Marker depth="200 m" name="Eight arms" />
+
+    <div class="rise">
+      <h2>Eight arms,<br /><em>one nervous system</em></h2>
+      <p class="lede" style="margin-top: var(--s-4)">
+        Two thirds of an octopus's neurons sit in its arms, not its head. Each
+        arm solves its own problem and reports back. That is the closest thing to
+        an honest diagram of how I work — so here it is, drawn.
+      </p>
+    </div>
+
+    <!-- The page is the animal. One tentacle per branch; each arm physically
+         reaches the label it belongs to. Hover a branch to tighten its arm. -->
+    <div class="crown" data-crown>
+      <canvas class="crown__canvas" aria-hidden="true"></canvas>
+      <div class="crown__hub" aria-hidden="true"></div>
+
+      <ul class="crown__branches" role="list">
+        {
+          arms.map((a, i) => (
+            <li
+              class={`branch branch--${i < half ? 'l' : 'r'}`}
+              role="listitem"
+              data-arm={i}
+              style={`--row:${(i % half) + 1}`}
+            >
+              <span class="branch__anchor" aria-hidden="true" />
+              <span class="branch__no">{String(i + 1).padStart(2, '0')}</span>
+              <h3 class="branch__name">{a.name}</h3>
+              <p class="branch__note">{a.note}</p>
+              <div class="branch__stack">
+                {a.stack.map((s) => (
+                  <span class="tag">{s}</span>
+                ))}
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,35 @@
+---
+import { person } from '../data/site';
+import Dock from './Dock.astro';
+---
+
+<section class="surface" id="surface">
+  <h1 class="surface__name">
+    <span>{person.first}</span>
+    <span class="is-italic">{person.last}</span>
+  </h1>
+
+  <div class="surface__claim">
+    <h2>{person.tagline}</h2>
+    <p>{person.intro}</p>
+  </div>
+
+  <Dock />
+
+  <div class="surface__foot">
+    <p class="morph">
+      <span>currently&nbsp;→</span>
+      <span class="morph__slot"
+        ><b data-roles={person.roles.join('|')}>{person.roles[0]}</b><i
+          class="morph__caret"
+          aria-hidden="true"></i
+        ></span
+      >
+    </p>
+
+    <p class="scrollcue mono">
+      <span class="scrollcue__bar" aria-hidden="true"></span>
+      <span>Descend</span>
+    </p>
+  </div>
+</section>

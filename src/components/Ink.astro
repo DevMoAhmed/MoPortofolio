@@ -1,0 +1,40 @@
+---
+import Marker from './Marker.astro';
+import { pieces } from '../data/site';
+---
+
+<section class="band" id="ink">
+  <div class="band__inner">
+    <Marker depth="3000 m" name="Ink" />
+
+    <div class="ink">
+      <div class="ink__intro rise">
+        <h2>Graphite,<br /><em>since 2015</em></h2>
+        <p class="prose" style="margin-top: var(--s-4)">
+          Paid portrait commissions, from real reference, for people who will
+          notice if the eyes are wrong. It is the oldest discipline here and the
+          one the engineering borrows from: proportion, value, patience, and the
+          willingness to erase two hours because the jawline is off by a degree.
+        </p>
+      </div>
+
+      {
+        pieces.map((p) => (
+          <figure class={`frame frame--${p.cls} rise`}>
+            {p.src ? (
+              <img src={p.src} alt={p.alt ?? `${p.label} — ${p.medium}`} loading="lazy" />
+            ) : (
+              <div class="frame__slot">
+                <span class="frame__wash" aria-hidden="true"></span>
+                <figcaption class="mono">
+                  {p.label} · {p.medium}
+                </figcaption>
+                <span class="mono" style="opacity:.72">Awaiting scan</span>
+              </div>
+            )}
+          </figure>
+        ))
+      }
+    </div>
+  </div>
+</section>

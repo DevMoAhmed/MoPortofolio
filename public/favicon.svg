@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#05080c"/>
+  <!-- mantle -->
+  <ellipse cx="16" cy="12" rx="7" ry="8" fill="#37e0bd"/>
+  <!-- eyes -->
+  <rect x="10.5" y="14" width="4" height="1.6" rx="0.8" fill="#05080c"/>
+  <rect x="17.5" y="14" width="4" height="1.6" rx="0.8" fill="#05080c"/>
+  <!-- eight arms -->
+  <g stroke="#37e0bd" stroke-width="1.6" stroke-linecap="round" fill="none">
+    <path d="M10 19c-2 3-3 5-5 6"/>
+    <path d="M12 20c-1.4 3.2-1.6 5.6-3 7"/>
+    <path d="M14.5 20.5c-.6 3.4-.4 6-1 7.5"/>
+    <path d="M17.5 20.5c.6 3.4.4 6 1 7.5"/>
+    <path d="M20 20c1.4 3.2 1.6 5.6 3 7"/>
+    <path d="M22 19c2 3 3 5 5 6"/>
+  </g>
+</svg>
