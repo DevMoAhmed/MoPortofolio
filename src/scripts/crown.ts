@@ -51,6 +51,8 @@ class Arm {
   fan = Math.PI / 2;
   /** half-width at the crown; narrower when the arms share a tight lane */
   girth = 12;
+  /** the one length every arm is built to, set by layout */
+  armLen = 180;
 
   constructor(el: HTMLElement, anchor: HTMLElement) {
     this.el = el;
@@ -75,13 +77,10 @@ class Arm {
     const viaX = this.root.x + dx * 0.8;
     const viaY = this.root.y + dy * 0.32;
 
-    const legA = Math.hypot(viaX - this.root.x, viaY - this.root.y);
-    const legB = Math.hypot(this.target.x - viaX, this.target.y - viaY);
-    const dist = Math.hypot(dx, dy) || 1;
-    // the smooth chain cuts the via corner, so the real arc sits between
-    // the straight line and the two legs. Overshoot here and the tip
-    // folds back on itself.
-    this.reachLen = lerp(dist, legA + legB, 0.94) * (1 - this.emphasis * 0.03);
+    // One length for all eight, set by layout — not derived from how far
+    // this particular branch happens to be. An arm whose label is nearer
+    // than its length takes up the slack as a bow.
+    this.reachLen = this.armLen * (1 - this.emphasis * 0.03);
     const segLen = this.reachLen / SEGMENTS;
 
     let px = this.root.x;
@@ -155,7 +154,9 @@ class Arm {
     // carries the last stretch to the branch it belongs to.
     const tip = pts[SEGMENTS - 1]!;
     const prev = pts[SEGMENTS - 2] ?? tip;
-    drawLead(ctx, tip, this.label, unit, skin, this.emphasis);
+    if (Math.hypot(this.label.x - tip.x, this.label.y - tip.y) > 2) {
+      drawLead(ctx, tip, this.label, unit, skin, this.emphasis);
+    }
     drawClamp(
       ctx,
       tip.x,
@@ -236,21 +237,7 @@ export function mountCrown(root: HTMLElement): void {
       arm.label.y = ar.top - base.top + ar.height / 2;
     }
 
-    // Eight arms of one length. Every arm stops on the same circle around
-    // the mantle, sized off the nearest branch so no arm has to stretch,
-    // and the lead line covers whatever is left to its own label. Aiming
-    // the arms straight at the labels made four short arms and four long
-    // ones, which read as a limp rather than a machine.
-    const reach =
-      Math.min(...arms.map((a) => Math.hypot(a.label.x - hubPt.x, a.label.y - hubPt.y))) *
-      0.82;
-    for (const arm of arms) {
-      const dx = arm.label.x - hubPt.x;
-      const dy = arm.label.y - hubPt.y;
-      const d = Math.hypot(dx, dy) || 1;
-      arm.target.x = hubPt.x + (dx / d) * reach;
-      arm.target.y = hubPt.y + (dy / d) * reach;
-    }
+    // (roots are placed below, and the arm length depends on them)
 
     // Order the roots along the crown by where their branch sits, so no
     // two arms cross. The key is the angle measured clockwise from
@@ -304,6 +291,29 @@ export function mountCrown(root: HTMLElement): void {
         arm.angles[s] = arm.fan;
       }
     });
+
+    // ONE LENGTH, MEASURED FROM EACH ARM'S OWN ROOT.
+    // Measuring it from the mantle centre instead is what crushed the
+    // lower arms: their roots already sit most of a unit below the
+    // centre, so a shared radius left them a few dozen pixels of path to
+    // fit 26 segments into, and they rendered as a knot of plates.
+    const spans = arms.map((a) => Math.hypot(a.label.x - a.root.x, a.label.y - a.root.y));
+    const len = clamp(unit * 2.7, unit * 1.6, Math.max(...spans) * 0.95);
+    for (const arm of arms) {
+      const dx = arm.label.x - arm.root.x;
+      const dy = arm.label.y - arm.root.y;
+      const d = Math.hypot(dx, dy) || 1;
+      arm.armLen = len;
+      if (d <= len) {
+        // the arm is long enough to hold its own branch; the slack bows out
+        arm.target.x = arm.label.x;
+        arm.target.y = arm.label.y;
+      } else {
+        // too far to hold — stop at length and route the rest as a lead
+        arm.target.x = arm.root.x + (dx / d) * len;
+        arm.target.y = arm.root.y + (dy / d) * len;
+      }
+    }
   }
 
   /** the aperture tracks whichever branch has hold of an arm */
