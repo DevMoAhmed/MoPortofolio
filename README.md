@@ -130,9 +130,7 @@ animal re-tints with the page. That is the thesis, running.
 Search the repo for `TODO`. Currently:
 
 - [ ] `astro.config.mjs` → set `site` to the real domain.
-- [ ] `src/data/site.ts` → `links`: uncomment and fill GitHub / LinkedIn / CV.
-- [ ] `src/data/site.ts` → `dive`: replace the `THEN` labels with real years for
-      the iSchool role and the Revibe start date.
+- [ ] `public/cv.pdf` → drop the CV in, then uncomment the `CV` entry in `links`.
 - [ ] `src/data/site.ts` → `pieces`: add `src: '/art/whatever.jpg'` (files under
       `public/`) to fill the art frames. Until then they render an ink wash and
       say so.
