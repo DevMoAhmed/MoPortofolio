@@ -17,7 +17,7 @@
    the arms re-aim on the next frame.
    ============================================================ */
 
-import { type Skin, type Vec, clamp, rgba, readSkin, makeGlowSprite } from './palette';
+import { type Skin, type Vec, clamp, rgba, readSkin } from './palette';
 import { type Sample, drawLimb, drawMantle, drawPacket } from './rig';
 
 /** samples per arm — enough for a smooth taper, cheap enough for 8 */
@@ -102,19 +102,17 @@ class Limb {
     return 1.4 + (this.girth * (1 + this.emphasis * 0.14) - 1.4) * Math.pow(1 - t, 0.9);
   }
 
-  draw(ctx: CanvasRenderingContext2D, skin: Skin, sprite: HTMLCanvasElement, unit: number) {
+  draw(ctx: CanvasRenderingContext2D, skin: Skin, unit: number) {
     const pts = this.path;
     if (!pts.length) return;
     drawLimb(ctx, pts, (t) => this.width(t), skin, unit, this.emphasis);
     // the clamp itself is a DOM element here — the port — so the canvas
-    // only marks the contact
+    // only marks the contact, as a flat disc
     const tip = pts[pts.length - 1]!;
-    ctx.globalCompositeOperation = 'lighter';
-    const s = unit * (0.2 + this.emphasis * 0.16);
-    ctx.globalAlpha = clamp((0.34 + this.emphasis * 0.5) * skin.strength, 0, 1);
-    ctx.drawImage(sprite, tip.x - s, tip.y - s, s * 2, s * 2);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.beginPath();
+    ctx.arc(tip.x, tip.y, Math.max(1.6, unit * (0.05 + this.emphasis * 0.02)), 0, Math.PI * 2);
+    ctx.fillStyle = rgba(skin.flare, 1);
+    ctx.fill();
   }
 
   /** a packet, running down the inlay toward the port */
@@ -142,7 +140,6 @@ export function mountDock(root: HTMLElement): void {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let skin = readSkin();
-  let sprite = makeGlowSprite(skin.glow);
 
   const limbs = ports.map((p, i) => new Limb(p, i));
 
@@ -249,7 +246,7 @@ export function mountDock(root: HTMLElement): void {
     ctx.clearRect(0, 0, w, h);
     drawRail();
     const sorted = [...limbs].sort((a, b) => a.emphasis - b.emphasis);
-    for (const limb of sorted) limb.draw(ctx, skin, sprite, unit);
+    for (const limb of sorted) limb.draw(ctx, skin, unit);
     if (!reduced) {
       HOT.forEach((i, slot) => {
         const limb = limbs[i % limbs.length];
@@ -258,7 +255,7 @@ export function mountDock(root: HTMLElement): void {
         limb.packet(ctx, skin, u, unit);
       });
     }
-    drawMantle(ctx, hubPt.x, hubPt.y, unit, skin, sprite, {
+    drawMantle(ctx, hubPt.x, hubPt.y, unit, skin, {
       t: clock,
       reduced,
       lookX: look ? clamp((look.x - hubPt.x) / (w * 0.5 || 1), -1, 1) : 0,
@@ -310,7 +307,6 @@ export function mountDock(root: HTMLElement): void {
 
   new MutationObserver(() => {
     skin = readSkin();
-    sprite = makeGlowSprite(skin.glow);
     // repaint immediately rather than on the next frame, so the rig
     // re-tints in step with the CSS transition instead of after it
     still();

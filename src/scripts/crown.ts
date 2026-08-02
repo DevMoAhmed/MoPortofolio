@@ -7,8 +7,9 @@
    to. Arm targets are read from the DOM, so CSS owns the layout
    and the canvas only draws the connective tissue.
 
-   Hovering or focusing a branch tightens that arm and makes the
-   eyes glance at it. Nothing drifts; nothing swims.
+   Flat 2D throughout — the drawing language lives in rig.ts.
+   Hovering or focusing a branch tightens that arm and slides the
+   aperture toward it. Nothing drifts; nothing swims.
    ============================================================ */
 
 import {
@@ -20,7 +21,6 @@ import {
   smoothstep,
   lerpAngle,
   readSkin,
-  makeGlowSprite,
 } from './palette';
 import { type Sample, drawClamp, drawLimb, drawMantle, drawPacket } from './rig';
 
@@ -149,7 +149,7 @@ class Arm {
     return out;
   }
 
-  draw(ctx: CanvasRenderingContext2D, unit: number, skin: Skin, sprite: HTMLCanvasElement) {
+  draw(ctx: CanvasRenderingContext2D, unit: number, skin: Skin) {
     const pts = this.samples();
     const base = this.girth * (1 + this.emphasis * 0.16);
     drawLimb(ctx, pts, (t) => base * Math.pow(1 - t, 1.5) + unit * 0.02, skin, unit, this.emphasis);
@@ -166,7 +166,6 @@ class Arm {
       Math.atan2(tip.y - prev.y, tip.x - prev.x),
       unit,
       skin,
-      sprite,
       this.emphasis,
     );
   }
@@ -196,7 +195,6 @@ export function mountCrown(root: HTMLElement): void {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let skin = readSkin();
-  let sprite = makeGlowSprite(skin.glow);
 
   const arms: Arm[] = [];
   for (const [i, el] of branches.entries()) {
@@ -258,7 +256,7 @@ export function mountCrown(root: HTMLElement): void {
     // not hardcoded — otherwise the single-column mobile layout sends
     // half the arms sweeping across the text before they turn back.
     const keys = order.map((o) => o.key);
-    const PAD = 0.3;
+    const PAD = 0.5;
     // Single-column layout puts every branch down the left, so the arc is
     // pinned down-and-left (−169° … −102° from overhead). Any rightward
     // launch angle would send an arm sweeping across the text before it
@@ -305,7 +303,7 @@ export function mountCrown(root: HTMLElement): void {
     ctx.clearRect(0, 0, w, h);
     // resting arms first, the emphasised one on top
     const sorted = [...arms].sort((a, b) => a.emphasis - b.emphasis);
-    for (const arm of sorted) arm.draw(ctx, unit, skin, sprite);
+    for (const arm of sorted) arm.draw(ctx, unit, skin);
     if (!reduced) {
       HOT.forEach((i, slot) => {
         const arm = arms[i % arms.length];
@@ -313,7 +311,7 @@ export function mountCrown(root: HTMLElement): void {
         drawPacket(ctx, arm.cache, (now / 3400 + slot * 0.19) % 1, skin, unit);
       });
     }
-    drawMantle(ctx, hubPt.x, hubPt.y, unit, skin, sprite, {
+    drawMantle(ctx, hubPt.x, hubPt.y, unit, skin, {
       t: clock,
       reduced,
       lookX: lookX(),
@@ -380,7 +378,6 @@ export function mountCrown(root: HTMLElement): void {
 
   new MutationObserver(() => {
     skin = readSkin();
-    sprite = makeGlowSprite(skin.glow);
     // repaint in step with the CSS skin transition, not a frame behind it
     still();
   }).observe(document.documentElement, {

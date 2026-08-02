@@ -1,15 +1,22 @@
 /* ============================================================
    rig.ts — how the animal is drawn
    ------------------------------------------------------------
+   FLAT 2D. No gradients, no radial shading, no soft glow
+   sprites, no rim lights, no drop shadows. Everything here is a
+   solid fill or a hairline, the way the silhouette references
+   are built. If you are tempted to add a gradient for "depth",
+   add a shape instead.
+
    One drawing language, two rigs. The hero dock and the Arms
    crown differ only in how their arms are *shaped* — beziers to
    a row of clamps, or an IK chain to a branch label. What the
    arms are made of lives here:
 
-     · a machined mantle with one aperture, not two eyes
-     · a tapered limb with a rim light on the lit side
-     · a photophore inlay running the length of every arm, tacked
-       down with vias
+     · a flat mantle with one aperture, not two eyes
+     · armoured limbs: a tapered silhouette cut into segment
+       plates, ribbed across the arm, after the mechanical
+       tentacle reference
+     · a photophore inlay down the spine of every arm
      · a clamp where the arm terminates
      · packets travelling the inlay
 
@@ -29,9 +36,30 @@ export interface Sample {
   t: number;
 }
 
+/** flat ink: the body tone, one step darker for the shadow plates */
+const plateInk = (skin: Skin) => mixRGB(skin.body, skin.bodyDeep, 0.55);
+
+function traceEdge(
+  ctx: CanvasRenderingContext2D,
+  pts: Sample[],
+  width: (t: number) => number,
+  side: number,
+  scale = 1,
+): void {
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]!;
+    const w = width(p.t) * side * scale;
+    const x = p.x + p.nx * w;
+    const y = p.y + p.ny * w;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+}
+
 /**
- * The body of one arm: taper, rim light, inlay, vias.
- * `width(t)` is the half-width at t, so each rig keeps its own taper.
+ * One arm. Flat silhouette, hairline outline, segment plates across
+ * it, inlay down the spine. `width(t)` is the half-width at t, so each
+ * rig keeps its own taper.
  */
 export function drawLimb(
   ctx: CanvasRenderingContext2D,
@@ -42,61 +70,78 @@ export function drawLimb(
   emphasis = 0,
 ): void {
   if (pts.length < 2) return;
-  const head = pts[0]!;
-  const tip = pts[pts.length - 1]!;
+  const hair = Math.max(0.8, unit * 0.013);
 
+  // 1 · the silhouette, one solid fill
   ctx.beginPath();
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i]!;
-    const w = width(p.t);
-    const x = p.x + p.nx * w;
-    const y = p.y + p.ny * w;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
+  traceEdge(ctx, pts, width, 1);
   for (let i = pts.length - 1; i >= 0; i--) {
     const p = pts[i]!;
     const w = width(p.t);
     ctx.lineTo(p.x - p.nx * w, p.y - p.ny * w);
   }
   ctx.closePath();
-
-  const grad = ctx.createLinearGradient(head.x, head.y, tip.x, tip.y);
-  grad.addColorStop(0, rgba(skin.body, 0.97));
-  grad.addColorStop(0.58, rgba(mixRGB(skin.body, skin.bodyDeep, 0.45), 0.93));
-  grad.addColorStop(1, rgba(skin.bodyDeep, 0.85));
-  ctx.fillStyle = grad;
+  ctx.fillStyle = rgba(skin.body, 1);
   ctx.fill();
 
-  // rim: a hairline held inside the lit edge, not around the whole shape
+  // 2 · the underside plate — a flat second colour, not a gradient.
+  //     Clipped to the silhouette so the arm still reads as one piece.
+  ctx.save();
+  ctx.clip();
   ctx.beginPath();
-  for (let i = 0; i < pts.length; i++) {
+  traceEdge(ctx, pts, width, 1);
+  for (let i = pts.length - 1; i >= 0; i--) {
     const p = pts[i]!;
-    const w = -width(p.t) * 0.62;
-    const x = p.x + p.nx * w;
-    const y = p.y + p.ny * w;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    const w = width(p.t) * 0.12;
+    ctx.lineTo(p.x + p.nx * w, p.y + p.ny * w);
   }
-  ctx.strokeStyle = rgba(skin.rim, 0.4 + emphasis * 0.45);
-  ctx.lineWidth = Math.max(0.7, unit * 0.012);
+  ctx.closePath();
+  ctx.fillStyle = rgba(plateInk(skin), 1);
+  ctx.fill();
+
+  // 3 · segment ribs, straight across the arm — the armoured tentacle
+  ctx.strokeStyle = rgba(skin.bodyDeep, 0.9);
+  ctx.lineWidth = hair;
+  const ribs = Math.max(6, Math.round(pts.length / 2));
+  for (let r = 1; r < ribs; r++) {
+    const i = Math.round((r / ribs) * (pts.length - 1));
+    const p = pts[i]!;
+    const w = width(p.t);
+    ctx.beginPath();
+    ctx.moveTo(p.x + p.nx * w, p.y + p.ny * w);
+    ctx.lineTo(p.x - p.nx * w, p.y - p.ny * w);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 4 · outline, drawn after the ribs so the edge stays crisp
+  ctx.beginPath();
+  traceEdge(ctx, pts, width, 1);
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i]!;
+    const w = width(p.t);
+    ctx.lineTo(p.x - p.nx * w, p.y - p.ny * w);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = rgba(skin.rim, 0.55 + emphasis * 0.45);
+  ctx.lineWidth = hair;
   ctx.stroke();
 
-  // the inlay — one photophore line the full length of the arm
+  // 5 · the inlay, down the spine
   ctx.beginPath();
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i]!;
     if (i === 0) ctx.moveTo(p.x, p.y);
     else ctx.lineTo(p.x, p.y);
   }
-  ctx.strokeStyle = rgba(skin.glow, clamp((0.46 + emphasis * 0.44) * skin.strength, 0, 1));
-  ctx.lineWidth = Math.max(1, unit * 0.017);
-  ctx.lineCap = 'round';
+  ctx.strokeStyle = rgba(skin.glow, clamp((0.5 + emphasis * 0.45) * skin.strength, 0, 1));
+  ctx.lineWidth = Math.max(1, unit * 0.016);
+  ctx.lineCap = 'butt';
   ctx.stroke();
 
-  // vias, where the inlay is tacked down
+  // 6 · vias: flat discs, no halo
   const via: RGB = mixRGB(skin.glow, skin.fg, 0.4);
-  ctx.fillStyle = rgba(via, 0.75 + emphasis * 0.25);
+  ctx.fillStyle = rgba(via, 0.8 + emphasis * 0.2);
   const step = Math.max(3, Math.round(pts.length / 5));
   for (let i = step; i < pts.length - 2; i += step) {
     const p = pts[i]!;
@@ -121,7 +166,7 @@ export function drawPacket(
   ctx.save();
   ctx.translate(p.x, p.y);
   ctx.rotate(Math.atan2(p.ny, p.nx));
-  ctx.fillStyle = rgba(skin.flare, 0.95);
+  ctx.fillStyle = rgba(skin.flare, 1);
   ctx.fillRect(-s, -s, s * 2, s * 2);
   ctx.restore();
 }
@@ -137,30 +182,22 @@ export function drawClamp(
   angle: number,
   unit: number,
   skin: Skin,
-  sprite: HTMLCanvasElement,
   emphasis = 0,
 ): void {
   const w = Math.max(5, unit * 0.13);
   const h = Math.max(3.5, unit * 0.085);
-
-  ctx.globalCompositeOperation = 'lighter';
-  const g = unit * (0.17 + emphasis * 0.15);
-  ctx.globalAlpha = clamp((0.32 + emphasis * 0.5) * skin.strength, 0, 1);
-  ctx.drawImage(sprite, x - g, y - g, g * 2, g * 2);
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'source-over';
+  const hair = Math.max(0.8, unit * 0.013);
 
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
   ctx.beginPath();
   ctx.rect(-w * 0.5, -h, w, h * 2);
-  ctx.fillStyle = rgba(skin.bg, 0.82);
+  ctx.fillStyle = rgba(skin.bg, 1);
   ctx.fill();
-  ctx.strokeStyle = rgba(mixRGB(skin.rim, skin.glow, 0.35), 0.7 + emphasis * 0.3);
-  ctx.lineWidth = Math.max(0.8, unit * 0.013);
+  ctx.strokeStyle = rgba(mixRGB(skin.rim, skin.glow, 0.35), 0.75 + emphasis * 0.25);
+  ctx.lineWidth = hair;
   ctx.stroke();
-  // the two prongs
   ctx.beginPath();
   ctx.moveTo(w * 0.5, -h * 0.5);
   ctx.lineTo(w * 0.95, -h * 0.5);
@@ -170,8 +207,8 @@ export function drawClamp(
   ctx.restore();
 
   ctx.beginPath();
-  ctx.arc(x, y, Math.max(1.4, unit * (0.02 + emphasis * 0.012)), 0, TAU);
-  ctx.fillStyle = rgba(skin.flare, 0.85 + emphasis * 0.15);
+  ctx.arc(x, y, Math.max(1.4, unit * (0.022 + emphasis * 0.012)), 0, TAU);
+  ctx.fillStyle = rgba(skin.flare, 1);
   ctx.fill();
 }
 
@@ -184,9 +221,9 @@ export interface MantleOpts {
 }
 
 /**
- * The mantle. Machined, not cartoon: one aperture band with a lit slit
- * that tracks whatever you are pointing at, a collar carrying the bus
- * line every arm leaves from, and chromatophore freckles over the dome.
+ * The mantle. Flat: a solid dome, a solid skirt, a hairline seam, one
+ * aperture band with a lit slit that tracks whatever you point at, and
+ * a collar carrying the bus line every arm leaves from.
  */
 export function drawMantle(
   ctx: CanvasRenderingContext2D,
@@ -194,37 +231,48 @@ export function drawMantle(
   cy: number,
   unit: number,
   skin: Skin,
-  sprite: HTMLCanvasElement,
   { t, reduced, lookX }: MantleOpts,
 ): void {
   const R = unit;
   const breathe = reduced ? 1 : 1 + Math.sin(t * 0.72) * 0.02;
+  const hair = Math.max(0.8, R * 0.016);
 
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(breathe, 1 / breathe);
 
-  const dome = ctx.createRadialGradient(-R * 0.34, -R * 0.72, R * 0.08, 0, 0, R * 1.7);
-  dome.addColorStop(0, rgba(mixRGB(skin.body, skin.fg, 0.2), 0.98));
-  dome.addColorStop(0.52, rgba(skin.body, 0.96));
-  dome.addColorStop(1, rgba(skin.bodyDeep, 0.9));
-  ctx.fillStyle = dome;
-
-  ctx.beginPath();
-  ctx.ellipse(0, -R * 0.3, R * 0.9, R * 1.06, 0, 0, TAU);
-  ctx.fill();
+  // skirt behind, dome in front — two flat shapes, no blending
+  ctx.fillStyle = rgba(plateInk(skin), 1);
   ctx.beginPath();
   ctx.ellipse(0, R * 0.4, R * 0.86, R * 0.5, 0, 0, TAU);
   ctx.fill();
 
+  ctx.fillStyle = rgba(skin.body, 1);
   ctx.beginPath();
-  ctx.ellipse(0, -R * 0.3, R * 0.9, R * 1.06, 0, Math.PI * 1.04, Math.PI * 1.86);
-  ctx.strokeStyle = rgba(skin.rim, 0.55);
-  ctx.lineWidth = Math.max(0.8, R * 0.016);
+  ctx.ellipse(0, -R * 0.3, R * 0.9, R * 1.06, 0, 0, TAU);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(0, -R * 0.3, R * 0.9, R * 1.06, 0, 0, TAU);
+  ctx.strokeStyle = rgba(skin.rim, 0.6);
+  ctx.lineWidth = hair;
   ctx.stroke();
 
-  // freckles first, so the aperture housing sits over them
-  ctx.globalAlpha = 0.15;
+  // mantle plating: three seams across the dome, same language as the
+  // ribs on the arms
+  ctx.strokeStyle = rgba(skin.bodyDeep, 0.75);
+  ctx.lineWidth = hair;
+  for (const f of [-0.9, -0.6, -0.32]) {
+    const ry = Math.sqrt(Math.max(0, 1 - Math.pow((f * R + R * 0.3) / (R * 1.06), 2)));
+    const halfW = R * 0.9 * ry;
+    ctx.beginPath();
+    ctx.moveTo(-halfW, f * R);
+    ctx.lineTo(halfW, f * R);
+    ctx.stroke();
+  }
+
+  // chromatophore freckles — flat discs
+  ctx.globalAlpha = 0.16;
   ctx.fillStyle = rgba(skin.flare, 1);
   for (let i = 0; i < 18; i++) {
     const a = (i * 2.39996) % TAU;
@@ -241,45 +289,31 @@ export function drawMantle(
   const apY = R * 0.16;
   ctx.beginPath();
   ctx.ellipse(0, apY, R * 0.62, R * 0.3, 0, 0, TAU);
-  ctx.fillStyle = rgba(skin.bg, 0.94);
+  ctx.fillStyle = rgba(skin.bg, 1);
   ctx.fill();
-  ctx.strokeStyle = rgba(skin.rim, 0.5);
+  ctx.strokeStyle = rgba(skin.rim, 0.6);
   ctx.lineWidth = Math.max(0.7, R * 0.014);
   ctx.stroke();
 
   const off = clamp(lookX, -1, 1) * R * 0.2;
-  const slit = ctx.createLinearGradient(-R * 0.46 + off, 0, R * 0.46 + off, 0);
-  slit.addColorStop(0, rgba(skin.flare, 0));
-  slit.addColorStop(0.5, rgba(skin.flare, 0.98));
-  slit.addColorStop(1, rgba(skin.flare, 0));
   ctx.beginPath();
-  ctx.moveTo(-R * 0.42 + off, apY);
-  ctx.lineTo(R * 0.42 + off, apY);
-  ctx.strokeStyle = slit;
-  ctx.lineWidth = Math.max(2, R * 0.09);
-  ctx.lineCap = 'round';
-  ctx.stroke();
-
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = 0.4 * skin.strength;
-  const s = R * 0.55;
-  ctx.drawImage(sprite, off - s, apY - s * 0.5, s * 2, s);
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'source-over';
+  ctx.rect(-R * 0.42 + off, apY - R * 0.045, R * 0.84, R * 0.09);
+  ctx.fillStyle = rgba(skin.flare, 1);
+  ctx.fill();
 
   // collar and bus line
   const cw = R * 1.5;
   ctx.beginPath();
   ctx.rect(-cw / 2, R * 0.58, cw, R * 0.2);
-  ctx.fillStyle = rgba(skin.bodyDeep, 0.95);
+  ctx.fillStyle = rgba(skin.bodyDeep, 1);
   ctx.fill();
-  ctx.strokeStyle = rgba(skin.rim, 0.5);
+  ctx.strokeStyle = rgba(skin.rim, 0.6);
   ctx.lineWidth = Math.max(0.7, R * 0.014);
   ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(-cw * 0.38, R * 0.68);
   ctx.lineTo(cw * 0.38, R * 0.68);
-  ctx.strokeStyle = rgba(skin.glow, clamp(0.7 * skin.strength, 0, 1));
+  ctx.strokeStyle = rgba(skin.glow, clamp(0.8 * skin.strength, 0, 1));
   ctx.lineWidth = Math.max(1, R * 0.022);
   ctx.stroke();
 

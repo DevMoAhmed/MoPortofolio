@@ -4,8 +4,7 @@
    Both canvases (the crown in Arms, the dock in Surface) tint
    themselves from the active skin's custom properties, so the
    animal re-colours with the page. These helpers are the shared
-   part: read the skin, mix it, and make the one glow sprite both
-   drawings light themselves with.
+   part: read the skin and mix it.
 
    Colour is never hardcoded in a canvas. It is read from CSS.
    ============================================================ */
@@ -103,20 +102,4 @@ export function readSkin(): Skin {
     bg,
     strength,
   };
-}
-
-export function makeGlowSprite(color: RGB, size = 64): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const g = c.getContext('2d');
-  if (!g) return c;
-  const r = size / 2;
-  const grad = g.createRadialGradient(r, r, 0, r, r, r);
-  grad.addColorStop(0, rgba(color, 0.95));
-  grad.addColorStop(0.22, rgba(color, 0.5));
-  grad.addColorStop(0.55, rgba(color, 0.12));
-  grad.addColorStop(1, rgba(color, 0));
-  g.fillStyle = grad;
-  g.fillRect(0, 0, size, size);
-  return c;
 }
