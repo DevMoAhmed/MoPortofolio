@@ -6,20 +6,23 @@
    ============================================================ */
 
 export const person = {
-  name: 'Mohamed Abdallah',
+  name: 'Mohamed Ahmed Abdallah',
   first: 'Mohamed',
   last: 'Abdallah',
   short: 'Mohamed Abdallah',
-  role: 'Data analysis & automation',
+  role: 'Data analyst — reporting & workflow automation',
   employer: 'Revibe',
   place: 'Farshout, Qena — Egypt',
   tz: 'UTC+3',
-  email: 'mohamed.abdallah@revibe.me',
+  email: 'mohamedelhawary8@gmail.com',
+  phone: '+20 101 788 1494',
+  github: 'DevMoAhmed',
+  linkedin: 'mohamed-ahmed-9361b9170',
   born: 1999,
   /** cycled in the hero — one interface, many implementations */
   roles: [
-    'automation engineer',
     'data analyst',
+    'automation engineer',
     'electrical engineer',
     'flutter developer',
     'python instructor',
@@ -28,7 +31,7 @@ export const person = {
   ],
   tagline: 'One interface. Many implementations.',
   intro:
-    'Electrical engineer who moved into data and automation. I build the pipeline, the model behind it, and the report someone actually reads — then I go home and draw portraits with a pencil.',
+    'Electrical engineer who moved into data. Promoted twice in a year at Revibe — frontline tickets, then order operations, now the analyst seat — so the metric definitions come from having done the work being measured. Four systems, one weekly report, zero manual steps.',
 } as const;
 
 /* ------------------------------------------------------------
@@ -45,14 +48,14 @@ export const arms = [
   {
     arm: 1,
     name: 'Data & reporting',
-    note: 'Support data turned into weekly numbers people make decisions on. Extract, categorise, aggregate, publish — unattended.',
-    stack: ['SQL', 'Pandas', 'Sheets API', 'Gorgias'],
+    note: 'Support data turned into weekly numbers people make decisions on. Extract, categorise, aggregate, publish — unattended. Defining what a category means comes before the query.',
+    stack: ['SQL', 'Pandas', 'Power BI', 'Sheets API', 'Gorgias'],
   },
   {
     arm: 2,
     name: 'AI integration',
-    note: 'LLMs used as components, not demos. Ticket classification, transcript parsing, moderation assistance — each with a deterministic fallback.',
-    stack: ['Gemini', 'Prompt design', 'Structured output'],
+    note: 'LLMs used as components, not demos. Ticket classification against a validated schema, transcript parsing, moderation assistance — each with a deterministic fallback.',
+    stack: ['Gemini', 'Claude', 'MCP', 'Structured output'],
   },
   {
     arm: 3,
@@ -75,7 +78,7 @@ export const arms = [
   {
     arm: 6,
     name: 'Teaching',
-    note: 'Taught Python at iSchool. Explaining a concept until it is genuinely obvious is a separate skill from knowing it.',
+    note: 'Taught Python at iSchool, Aug–Nov 2024 — fundamentals through practical scripting, live-debugged in front of a class. Explaining a concept until it is genuinely obvious is a separate skill from knowing it.',
     stack: ['Python', 'Curriculum', 'Live debugging'],
   },
   {
@@ -110,7 +113,7 @@ export const implementations: Impl[] = [
     ],
     spec: [
       ['Owns', 'Ticket pipelines, categorisation, weekly reporting'],
-      ['Tools', 'n8n · Python · SQL · Google Sheets API'],
+      ['Tools', 'n8n · Python · SQL · Power BI · Google Sheets API'],
       ['Rule', 'If I do it twice by hand, the third time is a script'],
     ],
     code: [
@@ -141,6 +144,7 @@ export const implementations: Impl[] = [
     ],
     spec: [
       ['Degree', 'B.Sc. Electrical Engineering — 2023'],
+      ['School', 'South Valley University'],
       ['Thesis', 'EV off-board charger, Vienna rectifier topology'],
       ['Result', 'Power factor ≈ 0.997'],
       ['Embedded', 'PIC18F4620 · C · MATLAB / Simulink'],
@@ -251,8 +255,8 @@ export const projects: Project[] = [
     where: 'Revibe · current',
     lead: true,
     body: [
-      'A stack of pipelines sitting on top of <strong>Gorgias</strong> and two internal apps (Orders, Claims). Tickets are pulled, transcripts parsed, categories assigned by an LLM, then aggregated into the numbers the team plans around.',
-      'It started because I was the one doing it by hand. I began in ticket support — including voice — so I knew exactly which parts were judgement and which parts were transcription.',
+      'A stack of pipelines sitting on top of <strong>Gorgias</strong> and two internal apps (Orders, Claims). Tickets are pulled, classified by an LLM against a validated schema, then aggregated into the numbers the team plans around. Retry and error branches throughout.',
+      'It started because I was the one doing it by hand. I began on frontline email support at around <strong>100 tickets a day</strong> at peak, so I know which fields in a ticket are reliable and which are free text someone typed in a hurry.',
       'The weekly report is the part I am proudest of: nobody assembles it. It arrives.',
     ],
     stack: ['n8n', 'Python', 'SQL', 'Google Sheets API', 'Gemini', 'Gorgias API'],
@@ -265,6 +269,50 @@ export const projects: Project[] = [
   },
   {
     no: '02',
+    title: 'CX dashboard suite',
+    where: 'Revibe · current',
+    body: [
+      'Dashboards for Claims, Orders, Disputes and Tickets across <strong>UAE, KSA and South Africa</strong>. Static front end with serverless API routes over the production database, behind Google login.',
+      'The chart engine is mine: bars, lines, stacked series, crosshair and hit-testing written straight onto canvas rather than pulling in a charting library for the four shapes actually needed.',
+    ],
+    stack: ['Vanilla JS', 'Canvas', 'Serverless', 'Vercel', 'SQL'],
+    readout: [
+      { val: '4', key: 'boards: claims, orders, disputes, tickets' },
+      { val: '3', key: 'markets covered' },
+      { val: '0', key: 'charting libraries' },
+    ],
+  },
+  {
+    no: '03',
+    title: 'Payment dispute sync',
+    where: 'Revibe · unattended daily',
+    body: [
+      'Daily job pulling each payment gateway API, normalising the records into one schema and writing the sheet that feeds the disputes dashboard.',
+      'Runs on a <strong>GitHub Actions</strong> schedule. There is no manual step and no machine of mine it depends on.',
+    ],
+    stack: ['Python', 'GitHub Actions', 'Google Sheets API', 'REST'],
+  },
+  {
+    no: '04',
+    title: 'Customs invoice automation',
+    where: 'Revibe · order operations',
+    body: [
+      'Generates the commercial invoice customs import requires straight from order data — products, categories and AWB references joined out of the operational tables instead of retyped per shipment.',
+      'Built while I was the one creating the waybills, which is the only reason the field mapping is right.',
+    ],
+    stack: ['Python', 'SQL'],
+  },
+  {
+    no: '05',
+    title: 'Email & form response automation',
+    where: 'Revibe · correspondence layer',
+    body: [
+      'The correspondence side of the job: replies to companies generated and sent from templates without manual drafting, and scripted completion of the recurring web forms so the same details are never retyped into another portal.',
+    ],
+    stack: ['n8n', 'Email APIs', 'Tampermonkey', 'AutoHotkey'],
+  },
+  {
+    no: '06',
     title: 'EV off-board battery charger',
     where: 'B.Sc. thesis · 2023',
     body: [
@@ -279,7 +327,7 @@ export const projects: Project[] = [
     ],
   },
   {
-    no: '03',
+    no: '07',
     title: 'Gemini moderation extension',
     where: 'Personal · browser extension',
     body: [
@@ -289,7 +337,7 @@ export const projects: Project[] = [
     stack: ['JavaScript', 'Chrome APIs', 'Gemini', 'Tampermonkey'],
   },
   {
-    no: '04',
+    no: '08',
     title: 'Water-dispenser locator',
     where: 'Personal · Flutter',
     body: [
@@ -298,7 +346,7 @@ export const projects: Project[] = [
     stack: ['Flutter', 'Dart', 'Bloc', 'Maps'],
   },
   {
-    no: '05',
+    no: '09',
     title: 'Exoplanet education project',
     where: 'NASA Space Apps Challenge',
     body: [
@@ -307,7 +355,7 @@ export const projects: Project[] = [
     stack: ['Python', 'Data visualisation', 'Open NASA data'],
   },
   {
-    no: '06',
+    no: '10',
     title: 'Command-block machines',
     where: 'Minecraft · long-running',
     body: [
@@ -317,7 +365,7 @@ export const projects: Project[] = [
     stack: ['Command blocks', 'Server admin', 'Systems design'],
   },
   {
-    no: '07',
+    no: '11',
     title: 'Self-hosted infrastructure',
     where: 'Oracle Cloud · Linux',
     body: [
@@ -328,9 +376,9 @@ export const projects: Project[] = [
 ];
 
 /* ------------------------------------------------------------
-   DIVE — the descent. `year` may be a phase label where the
-   exact date is not settled. TODO: replace THEN/NOW with real
-   years for iSchool and the Revibe start.
+   DIVE — the descent. Dates are the ones on the CV; `x` is the
+   sideways jog, and repeats where two stops belong to the same
+   stretch of the descent.
    ------------------------------------------------------------ */
 export interface Stop {
   year: string;
@@ -362,26 +410,44 @@ export const dive: Stop[] = [
   {
     year: '2023',
     what: 'B.Sc. Electrical Engineering',
-    note: 'Graduated with the Vienna-rectifier charger as the thesis. Power factor 0.997.',
+    note: 'South Valley University. Graduated with the Vienna-rectifier charger as the thesis. Power factor 0.997.',
     x: 3,
   },
   {
-    year: 'THEN',
-    what: 'Taught Python at iSchool',
-    note: 'Instructor role. Discovered that explaining is its own skill.',
+    year: 'JAN 2024',
+    what: 'IT specialist, Seagull Hotel',
+    note: 'Hardware, accounts and the systems a property runs on — where a fault is felt by guests immediately rather than filed as a ticket.',
     x: 4,
   },
   {
-    year: 'THEN',
-    what: 'Joined Revibe — ticket support',
-    note: 'Including voice. Learned the domain from the bottom, which is why the automation later actually fit.',
+    year: 'APR 2024',
+    what: 'Cold caller, Lead Genie',
+    note: 'Outbound real-estate lists, every outcome logged. First exposure to a pipeline being measured rather than guessed at.',
+    x: 4,
+  },
+  {
+    year: 'AUG 2024',
+    what: 'Python instructor, iSchool',
+    note: 'Four months teaching beginners. Discovered that explaining is its own skill.',
     x: 5,
   },
   {
-    year: 'NOW',
-    what: 'Revibe — data & automation',
-    note: 'Pipelines, categorisation, reporting. The work I was doing unofficially became the job.',
+    year: 'DEC 2024',
+    what: 'Revibe — email support',
+    note: 'Around 100 tickets a day at peak. Learned the domain from the bottom, which is why the automation later actually fit.',
     x: 6,
+  },
+  {
+    year: 'JUL 2025',
+    what: 'Revibe — order operations',
+    note: 'Shopify orders through to fulfilment, air waybills, suppliers. Started scripting the repetitive parts, which is what led to the analyst role.',
+    x: 6,
+  },
+  {
+    year: 'NOV 2025',
+    what: 'Revibe — data analyst',
+    note: 'Promoted twice in a year. Pipelines, categorisation, metric definitions, the weekly report. The work I was doing unofficially became the job.',
+    x: 7,
     now: true,
   },
 ];
@@ -415,7 +481,7 @@ export const learning = [
   { what: 'AI-driven automation', note: 'LLMs as reliable pipeline components', level: 3 },
   { what: 'Godot & game development', note: 'From systems I understand to systems people play', level: 2 },
   { what: 'Market technical analysis', note: 'Equities and physical gold — volume, structure', level: 2 },
-  { what: 'German', note: 'A1, restarted. Slow and deliberate.', level: 1 },
+  { what: 'German', note: 'B1. Slow and deliberate.', level: 2 },
 ];
 
 export const heading = [
@@ -434,18 +500,20 @@ export const heading = [
 ];
 
 /* ------------------------------------------------------------
-   SIGNAL — only entries with an href are rendered.
-   TODO: add your GitHub and LinkedIn URLs.
+   SIGNAL — the first entry is the headline address; the rest
+   render as links. TODO: drop the CV at public/cv.pdf and
+   uncomment the last line.
    ------------------------------------------------------------ */
 export const links: { label: string; href: string }[] = [
   { label: 'Email', href: `mailto:${person.email}` },
-  // { label: 'GitHub',   href: 'https://github.com/YOUR-HANDLE' },
-  // { label: 'LinkedIn', href: 'https://linkedin.com/in/YOUR-HANDLE' },
+  { label: 'GitHub', href: `https://github.com/${person.github}` },
+  { label: 'LinkedIn', href: `https://linkedin.com/in/${person.linkedin}` },
+  { label: 'Phone', href: `tel:${person.phone.replace(/\s/g, '')}` },
   // { label: 'CV',       href: '/cv.pdf' },
 ];
 
 export const languages = [
   { name: 'Arabic', level: 'native' },
-  { name: 'English', level: 'fluent' },
-  { name: 'German', level: 'A1' },
+  { name: 'English', level: 'C1' },
+  { name: 'German', level: 'B1' },
 ];
