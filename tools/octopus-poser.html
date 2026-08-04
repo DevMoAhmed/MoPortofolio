@@ -1,0 +1,1037 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Octopus poser — flat 2D rig sandbox</title>
+<style>
+/* ============================================================
+   Chrome is styled from the site's own token system: the 1.5
+   spacing ratio, the 0/1/2px radius vocabulary, mono labels.
+   Colour comes from the active skin, so the panel re-tints with
+   the animal — same rule the canvases follow.
+   FLAT ONLY. No gradients, no shadows, no blur. Depth is shapes
+   and hairlines.
+   ============================================================ */
+:root{
+  --s-1:.375rem; --s-2:.5625rem; --s-3:.875rem; --s-4:1.3125rem;
+  --s-5:2rem; --s-6:3rem;
+  --t--2:.6875rem; --t--1:.8125rem; --t-0:1rem; --t-1:1.25rem; --t-2:1.6rem;
+  --r-1:1px; --r-2:2px;
+  --hair:1px;
+  --f-mono:"IBM Plex Mono","Cascadia Mono",Consolas,ui-monospace,monospace;
+  --f-body:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-display:"Instrument Serif","Iowan Old Style",Georgia,serif;
+  --e-out:cubic-bezier(.16,.84,.28,1);
+  --d-fast:180ms;
+
+  /* overwritten by the skin switch */
+  --bg:#05080c; --bg-2:#080d14; --bg-3:#0c1522;
+  --fg:#e4ebef; --fg-2:#8b9ca7; --fg-3:#75858f;
+  --glow:#37e0bd; --flare:#ff6a3d;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:var(--f-body); font-size:var(--t-0); line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ONE VIEW: the stage owns its half and never scrolls away; only the
+   control card scrolls, inside itself. */
+.app{
+  height:100dvh; display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  padding:var(--s-3) var(--s-3) var(--s-3);
+  gap:var(--s-3);
+}
+header{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-2) var(--s-4);
+  padding-bottom:var(--s-2);border-bottom:var(--hair) solid rgba(128,128,128,.28);
+}
+h1{font-family:var(--f-display);font-size:var(--t-2);font-weight:400;margin:0;letter-spacing:-.01em}
+.sub{font-family:var(--f-mono);font-size:var(--t--2);letter-spacing:.2em;text-transform:uppercase;color:var(--fg-3)}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(316px,25rem);gap:var(--s-3);min-height:0}
+
+/* ---- stage ---- */
+.stage{
+  position:relative;border:var(--hair) solid var(--fg-3);
+  background:var(--bg-3);min-height:0;overflow:hidden
+}
+.stage:focus-visible{outline:2px solid var(--glow);outline-offset:-3px}
+#rig{display:block;width:100%;height:100%;touch-action:none}
+.stage__hint{
+  position:absolute;left:var(--s-3);bottom:var(--s-2);right:var(--s-3);
+  font-family:var(--f-mono);font-size:var(--t--2);letter-spacing:.1em;
+  text-transform:uppercase;color:var(--fg-3);pointer-events:none
+}
+.stage__corner{position:absolute;width:9px;height:9px;border:var(--hair) solid var(--flare);opacity:.75;pointer-events:none}
+.c-tl{top:6px;left:6px;border-right:0;border-bottom:0}
+.c-tr{top:6px;right:6px;border-left:0;border-bottom:0}
+.c-bl{bottom:6px;left:6px;border-right:0;border-top:0}
+.c-br{bottom:6px;right:6px;border-left:0;border-top:0}
+.stage.is-adding{cursor:crosshair}
+
+/* ---- control card: scrolls inside itself ---- */
+.card{
+  border:var(--hair) solid var(--fg-3);background:var(--bg-2);
+  display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0
+}
+.card__head{
+  display:flex;justify-content:space-between;align-items:center;gap:var(--s-2);
+  padding:var(--s-2) var(--s-3);border-bottom:var(--hair) solid var(--fg-3);
+  font-family:var(--f-mono);font-size:var(--t--2);letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3)
+}
+#panel{overflow-y:auto;overscroll-behavior:contain}
+.group{border-bottom:var(--hair) solid rgba(128,128,128,.22);padding:var(--s-3)}
+.group:last-child{border-bottom:0}
+.group__name{
+  font-family:var(--f-mono);font-size:var(--t--2);letter-spacing:.18em;text-transform:uppercase;
+  color:var(--glow);margin-bottom:var(--s-2)
+}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px var(--s-2);margin-bottom:var(--s-2)}
+.row:last-child{margin-bottom:0}
+.row label{font-size:var(--t--1);color:var(--fg-2)}
+.row output{font-family:var(--f-mono);font-size:var(--t--2);color:var(--fg);font-variant-numeric:tabular-nums}
+.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--glow);margin:0}
+.row input[type=range]:focus-visible{outline:2px solid var(--glow);outline-offset:3px}
+
+.btns{display:flex;flex-wrap:wrap;gap:var(--s-1)}
+button{
+  font-family:var(--f-mono);font-size:var(--t--2);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--fg-2);background:transparent;border:var(--hair) solid var(--fg-3);
+  border-radius:var(--r-1);padding:var(--s-1) var(--s-2);cursor:pointer;
+  transition:color var(--d-fast) var(--e-out),border-color var(--d-fast) var(--e-out)
+}
+button:hover,button:focus-visible{color:var(--glow);border-color:var(--glow)}
+button:focus-visible{outline:2px solid var(--glow);outline-offset:2px}
+button[aria-pressed=true]{color:var(--glow);border-color:var(--glow)}
+button[disabled]{opacity:.4;cursor:default}
+
+.swatches{display:flex;gap:var(--s-2)}
+.swatch{width:26px;height:26px;padding:0;border-radius:var(--r-1);position:relative}
+.swatch i{position:absolute;inset:5px;border-radius:var(--r-2);background:var(--dot)}
+
+.shots{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s-2)}
+.shot{border:var(--hair) solid var(--fg-3);background:var(--bg-3);aspect-ratio:1;position:relative;padding:0;cursor:pointer}
+.shot svg{width:100%;height:100%;display:block}
+.shot--empty{color:var(--fg-3);display:grid;place-items:center;font-family:var(--f-mono);font-size:var(--t--2)}
+.shot__kill{position:absolute;top:2px;right:2px;padding:0 4px;line-height:1.4;border:0;background:var(--bg);color:var(--fg-3)}
+
+details summary{
+  cursor:pointer;font-family:var(--f-mono);font-size:var(--t--2);letter-spacing:.16em;
+  text-transform:uppercase;color:var(--fg-3)
+}
+details summary:focus-visible{outline:2px solid var(--glow);outline-offset:2px}
+pre{
+  font-family:var(--f-mono);font-size:var(--t--2);line-height:1.45;color:var(--fg-2);
+  background:var(--bg);border:var(--hair) solid rgba(128,128,128,.25);
+  padding:var(--s-2);margin:var(--s-2) 0 0;max-height:14rem;overflow:auto
+}
+.note{font-size:var(--t--1);color:var(--fg-3);margin:var(--s-2) 0 0}
+
+@media (width < 62rem){
+  /* stage stays pinned on top, controls scroll under it */
+  .cols{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(42dvh,44dvh) minmax(0,1fr)}
+}
+@media (width < 30rem){
+  .app{padding:var(--s-2)}
+  h1{font-size:var(--t-1)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Octopus poser</h1>
+    <span class="sub">flat 2D · mirrored arms · anchors &amp; twist</span>
+  </header>
+
+  <div class="cols">
+    <div class="stage" id="stage" tabindex="0" aria-label="Pose stage. Arrow keys move the animal, shift plus arrow moves it further.">
+      <svg id="rig" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Octopus rig, editable"></svg>
+      <i class="stage__corner c-tl"></i><i class="stage__corner c-tr"></i>
+      <i class="stage__corner c-bl"></i><i class="stage__corner c-br"></i>
+      <span class="stage__hint" id="hint">drag the mantle to move · drag an anchor to bend · double-click an anchor to delete it</span>
+    </div>
+
+    <aside class="card">
+      <div class="card__head"><span>Controls</span><span id="fps">—</span></div>
+      <div id="panel"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   0 · colour maths, lifted from src/scripts/palette.ts so the
+   animal tints exactly the way it does on the site
+   ============================================================ */
+const TAU = Math.PI * 2;
+const clamp = (v,a,b)=> v<a?a:v>b?b:v;
+const lerp = (a,b,t)=> a+(b-a)*t;
+const hex = (h)=>{const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];};
+const mix = (a,b,t)=>[Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1],b[1],t)),Math.round(lerp(a[2],b[2],t))];
+const rgb = (c)=>`rgb(${c[0]},${c[1]},${c[2]})`;
+const rgba = (c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+const SKINS = {
+  abyss:      {bg:'#05080c',bg2:'#080d14',bg3:'#0c1522',fg:'#e4ebef',fg2:'#8b9ca7',fg3:'#75858f',glow:'#37e0bd',flare:'#ff6a3d',strength:1  },
+  camouflage: {bg:'#e9e2d4',bg2:'#e0d7c6',bg3:'#d3c8b2',fg:'#1f1a13',fg2:'#5b5243',fg3:'#655d4e',glow:'#0d6a56',flare:'#a3380f',strength:.45},
+  ink:        {bg:'#0a0908',bg2:'#100e0b',bg3:'#191510',fg:'#f1ede5',fg2:'#9d9789',fg3:'#847c6d',glow:'#c9b691',flare:'#e6d3a4',strength:.7 },
+  flash:      {bg:'#0f040b',bg2:'#170610',bg3:'#230a17',fg:'#ffeef5',fg2:'#c1899f',fg3:'#a06b86',glow:'#ffd63d',flare:'#ff2d6f',strength:1.25},
+};
+
+function skinInk(name){
+  const s = SKINS[name] || SKINS.abyss;
+  const bg=hex(s.bg), bg3=hex(s.bg3), fg=hex(s.fg), glow=hex(s.glow), flare=hex(s.flare);
+  const lum=(0.2126*bg[0]+0.7152*bg[1]+0.0722*bg[2])/255;
+  const lift = lum>0.5 ? 0.32 : 0.15;
+  const body = mix(bg3,fg,lift);
+  const bodyDeep = mix(bg,bg3,0.5);
+  return {body, bodyDeep, rim:mix(bg3,glow,0.34), plate:mix(body,bodyDeep,0.55),
+          joint:mix(glow,fg,0.3), glow, flare, fg, bg, bg3, strength:s.strength};
+}
+
+/* ============================================================
+   1 · state
+   ============================================================ */
+const R = 100;                       // mantle unit; everything derives from it
+const STORE = 'octo:poser:v2';
+
+/* `nodes` is how many anchors a generated arm starts with (root … tip).
+   `twist` spirals the chain: each step turns further than the last, which
+   is what makes an arm curl rather than just bow. `tension` is the
+   Catmull-Rom pull through the anchors — the curviness dial. */
+const PRESETS = {
+  crown: {arms:8,arc:300,armLen:215,bow:22,twist:34,nodes:4,tension:1,taper:1.5,girth:1,
+          plates:7,gap:.16,joint:.5,hair:1.3,
+          mw:1,mh:1,skirt:1,apW:1,apOff:0,collar:true,
+          x:450,y:330,rot:0,scale:1,flipY:false,pkOn:true,pkSpeed:3.4,pkSize:1},
+  dock:  {arms:8,arc:148,armLen:130,bow:10,twist:16,nodes:3,tension:1,taper:.95,girth:.9,
+          plates:5,gap:.18,joint:.46,hair:1.2,
+          mw:1,mh:.92,skirt:1,apW:1,apOff:0,collar:true,
+          x:450,y:250,rot:0,scale:1.15,flipY:false,pkOn:true,pkSpeed:2.9,pkSize:1},
+  logo:  {arms:8,arc:262,armLen:250,bow:28,twist:172,nodes:6,tension:1.15,taper:1.9,girth:.82,
+          plates:9,gap:.12,joint:.42,hair:1.1,
+          mw:.94,mh:1.06,skirt:.82,apW:.9,apOff:0,collar:false,
+          x:450,y:320,rot:0,scale:1,flipY:false,pkOn:true,pkSpeed:4.2,pkSize:.85},
+  coil:  {arms:6,arc:320,armLen:300,bow:16,twist:280,nodes:8,tension:1.3,taper:2.2,girth:.9,
+          plates:11,gap:.1,joint:.4,hair:1.1,
+          mw:1,mh:1,skirt:1,apW:1,apOff:0,collar:true,
+          x:450,y:330,rot:0,scale:.92,flipY:false,pkOn:true,pkSpeed:5,pkSize:.9},
+};
+
+let state = null, userPresets = {}, shots = [];
+
+function fresh(name){
+  const p = PRESETS[name] || PRESETS.crown;
+  return {preset:name,
+          skin: matchMedia('(prefers-color-scheme: light)').matches ? 'camouflage' : 'abyss',
+          symmetry:true, handlesOn:true, addMode:false, over:{},
+          ...JSON.parse(JSON.stringify(p))};
+}
+
+/* ============================================================
+   2 · geometry — all in local space, mantle centre at 0,0
+   ------------------------------------------------------------
+   An arm is a chain of anchors, not three fixed points. The
+   generated chain spirals by `twist`; you can drag any anchor,
+   add anchors anywhere along the arm, and delete the ones in the
+   middle. Mirrored pairs are built by construction — arm i and
+   arm (n-1-i) get the same offset from straight down, one to
+   each side — so symmetry costs nothing to maintain.
+   ============================================================ */
+const polar = (a,r)=>({x:Math.cos(a)*r, y:Math.sin(a)*r});
+const DOWN = Math.PI/2;
+const partner = (i,s)=> s.arms-1-i;
+
+function armAngle(i, s){
+  const n = s.arms, half = Math.ceil(n/2);
+  if (n%2===1 && i===Math.floor(n/2)) return DOWN;
+  const maxOff = (s.arc/2)*Math.PI/180;
+  const minOff = maxOff*0.14;
+  const left = i < half;
+  const k = left ? i : n-1-i;
+  const off = lerp(maxOff, minOff, half===1 ? 0 : k/(half-1));
+  return left ? DOWN+off : DOWN-off;
+}
+
+/** the generated anchor chain for one arm: root … tip */
+function generated(i, s){
+  const a = armAngle(i, s);
+  const side = Math.cos(a) > 0 ? -1 : 1;            // outward, away from the spine
+  const rx = R*0.9*s.mw, ry = R*1.06*s.mh, cy = -R*0.3;
+  const root = {x:Math.cos(a)*rx*0.93, y:cy + Math.sin(a)*ry*0.93};
+  const count = Math.max(2, Math.round(s.nodes));
+  const steps = count-1;
+  const twistStep = (s.twist*Math.PI/180)/steps*side;
+  const perp = {x:-Math.sin(a), y:Math.cos(a)};
+
+  const pts = [root];
+  let ang = a, px = root.x, py = root.y;
+  for (let k=1;k<=steps;k++){
+    ang += twistStep;
+    // each step a touch shorter than the last, so a twisted arm coils in
+    const len = (s.armLen/steps) * (1 - (k-1)*0.045);
+    px += Math.cos(ang)*len; py += Math.sin(ang)*len;
+    pts.push({x:px, y:py});
+  }
+  // the bow is a lateral nudge on the first inner anchor, kept so the
+  // control still means what it meant before anchors existed
+  if (pts.length>2){
+    pts[1].x += perp.x*s.bow*side;
+    pts[1].y += perp.y*s.bow*side;
+  }
+  return {a, side, pts};
+}
+
+/** the anchors actually in play: the override chain if there is one */
+function anchors(i, s){
+  const g = generated(i, s);
+  const o = s.over[i];
+  if (o && o.pts && o.pts.length>=2) return {a:g.a, side:g.side, pts:o.pts.map(p=>({x:p.x,y:p.y}))};
+  return g;
+}
+function pinAnchors(i, pts, s){
+  if (!s.over[i]) s.over[i] = {};
+  s.over[i].pts = pts.map(p=>({x:p.x,y:p.y}));
+  if (s.symmetry){
+    const j = partner(i,s);
+    if (j!==i){
+      if (!s.over[j]) s.over[j] = {};
+      s.over[j].pts = pts.map(p=>({x:-p.x, y:p.y}));   // exact mirror across the spine
+    }
+  }
+}
+
+/* ---- Catmull-Rom through the anchors, as cubic segments ---- */
+function segments(pts, tension){
+  const P = pts, n = P.length, segs = [];
+  const at = (k)=> P[clamp(k,0,n-1)];
+  for (let i=0;i<n-1;i++){
+    const p0=at(i-1), p1=at(i), p2=at(i+1), p3=at(i+2);
+    const t = tension/6;
+    segs.push([p1,
+      {x:p1.x+(p2.x-p0.x)*t, y:p1.y+(p2.y-p0.y)*t},
+      {x:p2.x-(p3.x-p1.x)*t, y:p2.y-(p3.y-p1.y)*t},
+      p2]);
+  }
+  return segs;
+}
+const bez = (p0,c0,c1,p1,t)=>{
+  const u=1-t;
+  return {x:u*u*u*p0.x+3*u*u*t*c0.x+3*u*t*t*c1.x+t*t*t*p1.x,
+          y:u*u*u*p0.y+3*u*u*t*c0.y+3*u*t*t*c1.y+t*t*t*p1.y};
+};
+const dbez = (p0,c0,c1,p1,t)=>{
+  const u=1-t;
+  return {x:3*u*u*(c0.x-p0.x)+6*u*t*(c1.x-c0.x)+3*t*t*(p1.x-c1.x),
+          y:3*u*u*(c0.y-p0.y)+6*u*t*(c1.y-c0.y)+3*t*t*(p1.y-c1.y)};
+};
+
+/** sampler over the whole arm, u ∈ [0,1] across every segment */
+function armCurve(i, s){
+  const {pts} = anchors(i, s);
+  const segs = segments(pts, s.tension);
+  const m = segs.length;
+  const at = (u)=>{
+    const g = clamp(u,0,1)*m;
+    let idx = Math.min(Math.floor(g), m-1);
+    const lt = g-idx;
+    const sg = segs[idx];
+    const p = bez(sg[0],sg[1],sg[2],sg[3],lt);
+    const d = dbez(sg[0],sg[1],sg[2],sg[3],lt);
+    const L = Math.hypot(d.x,d.y)||1;
+    return {x:p.x, y:p.y, nx:-d.y/L, ny:d.x/L, t:clamp(u,0,1)};
+  };
+  return {at, segs, pts};
+}
+
+const STEPS = 48;
+function armPath(i, s){
+  const {at} = armCurve(i, s);
+  const out=[];
+  for (let k=0;k<=STEPS;k++) out.push(at(k/STEPS));
+  return out;
+}
+
+/** the t-range each plate occupies, gap already taken off both seams.
+    Plates are cut on the curve parameter, never on sample indices —
+    cutting on indices let a high plate count starve a plate to nothing. */
+function plateSpans(s){
+  const spans=[], w=1/s.plates;
+  const half = Math.min(w*s.gap*0.5, w*0.45);
+  for (let p=0;p<s.plates;p++){
+    spans.push([p*w + (p===0?0:half), (p+1)*w - (p===s.plates-1?0:half)]);
+  }
+  return spans;
+}
+const widthAt = (t,s)=>{
+  const girth = R*0.17*s.girth;
+  return 1.2 + (girth-1.2)*Math.pow(1-t, s.taper);
+};
+
+/** nearest point on an arm to a local-space click, as a u value */
+function nearestU(i, s, pt){
+  const {at} = armCurve(i, s);
+  let best=0, bd=Infinity;
+  for (let k=0;k<=120;k++){
+    const u=k/120, p=at(u);
+    const d=(p.x-pt.x)**2+(p.y-pt.y)**2;
+    if (d<bd){ bd=d; best=u; }
+  }
+  return {u:best, dist:Math.sqrt(bd)};
+}
+
+/* ============================================================
+   3 · SVG building
+   ============================================================ */
+const NS='http://www.w3.org/2000/svg';
+const el=(n,attrs)=>{const e=document.createElementNS(NS,n);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;};
+const num=(v)=>Math.round(v*100)/100;
+
+function plateD(slice, s){
+  let d='';
+  for (let i=0;i<slice.length;i++){const p=slice[i],w=widthAt(p.t,s);
+    d+=(i?'L':'M')+num(p.x+p.nx*w)+' '+num(p.y+p.ny*w)+' ';}
+  for (let i=slice.length-1;i>=0;i--){const p=slice[i],w=widthAt(p.t,s);
+    d+='L'+num(p.x-p.nx*w)+' '+num(p.y-p.ny*w)+' ';}
+  return d+'Z';
+}
+function stripeD(slice, s){
+  let d='';
+  for (let i=0;i<slice.length;i++){const p=slice[i],w=widthAt(p.t,s)*0.44;
+    d+=(i?'L':'M')+num(p.x+p.nx*w)+' '+num(p.y+p.ny*w)+' ';}
+  return d;
+}
+
+function buildArm(i, s, ink){
+  const {at} = armCurve(i, s);
+  const g = el('g',{'data-arm':i});
+  const hair = s.hair, plates = s.plates, spans = plateSpans(s);
+  const PER = 10;
+
+  for (let p=0;p<plates;p++){
+    const [t0,t1]=spans[p];
+    const slice=[];
+    for (let k=0;k<=PER;k++) slice.push(at(t0+(t1-t0)*(k/PER)));
+    g.appendChild(el('path',{d:plateD(slice,s), fill:rgb(ink.body),
+      stroke:rgba(ink.rim,0.6),'stroke-width':hair,'data-plate':p,'data-span':`${num(t0)},${num(t1)}`}));
+    g.appendChild(el('path',{d:stripeD(slice,s), fill:'none',
+      stroke:rgba(ink.joint, clamp(0.42*ink.strength,0,1)),'stroke-width':hair}));
+  }
+  for (let p=1;p<plates;p++){
+    const q = at(p/plates);
+    g.appendChild(el('circle',{cx:num(q.x),cy:num(q.y),r:num(Math.max(1.2,widthAt(q.t,s)*s.joint)),
+      'data-joint':p, fill:rgb(ink.bodyDeep),
+      stroke:rgba(ink.joint, clamp(0.65*ink.strength,0,1)),'stroke-width':hair}));
+  }
+
+  // the clamp, squared to the arm's last direction
+  const tip = at(1), prev = at(0.985);
+  const ang = Math.atan2(tip.y-prev.y, tip.x-prev.x)*180/Math.PI;
+  const cw = Math.max(5,R*0.13), ch = Math.max(3.5,R*0.085);
+  const cg = el('g',{transform:`translate(${num(tip.x)} ${num(tip.y)}) rotate(${num(ang)})`});
+  cg.appendChild(el('rect',{x:num(-cw*0.5),y:num(-ch),width:num(cw),height:num(ch*2),
+    fill:rgb(ink.bg), stroke:rgba(mix(ink.rim,ink.glow,0.35),0.8),'stroke-width':hair}));
+  cg.appendChild(el('path',{d:`M${num(cw*0.5)} ${num(-ch*0.5)}H${num(cw*0.95)}M${num(cw*0.5)} ${num(ch*0.5)}H${num(cw*0.95)}`,
+    fill:'none', stroke:rgba(mix(ink.rim,ink.glow,0.35),0.8),'stroke-width':hair}));
+  g.appendChild(cg);
+  g.appendChild(el('circle',{cx:num(tip.x),cy:num(tip.y),r:num(Math.max(1.4,R*0.022)),fill:rgb(ink.flare)}));
+  return g;
+}
+
+function buildMantle(s, ink){
+  const g = el('g',{'data-mantle':'1', style:'cursor:grab'});
+  const rx=R*0.9*s.mw, ry=R*1.06*s.mh, hair=s.hair;
+
+  g.appendChild(el('ellipse',{cx:0,cy:num(R*0.4*s.skirt),rx:num(R*0.86*s.mw),ry:num(R*0.5*s.skirt),fill:rgb(ink.plate)}));
+  g.appendChild(el('ellipse',{cx:0,cy:num(-R*0.3),rx:num(rx),ry:num(ry),fill:rgb(ink.body),
+    stroke:rgba(ink.rim,0.62),'stroke-width':hair}));
+
+  for (let i=0;i<18;i++){
+    const a=(i*2.39996)%TAU, rr=Math.sqrt((i+0.5)/18)*R*0.76;
+    const sz=R*(0.018+((i*7)%4)*0.006);
+    g.appendChild(el('circle',{cx:num(Math.cos(a)*rr*s.mw),cy:num(Math.sin(a)*rr*1.1*s.mh - R*0.62),
+      r:num(sz),fill:rgb(ink.flare),opacity:0.16}));
+  }
+
+  const apY=R*0.16;
+  g.appendChild(el('ellipse',{cx:0,cy:num(apY),rx:num(R*0.62*s.mw),ry:num(R*0.3),
+    fill:rgb(ink.bg), stroke:rgba(ink.rim,0.62),'stroke-width':hair}));
+  const barW=R*0.84*s.apW;
+  g.appendChild(el('rect',{x:num(-barW/2 + R*0.2*s.apOff),y:num(apY-R*0.045),
+    width:num(barW),height:num(R*0.09),fill:rgb(ink.flare)}));
+
+  if (s.collar){
+    const cw=R*1.5*s.mw;
+    g.appendChild(el('rect',{x:num(-cw/2),y:num(R*0.58*s.skirt),width:num(cw),height:num(R*0.2),
+      fill:rgb(ink.bodyDeep), stroke:rgba(ink.rim,0.62),'stroke-width':hair}));
+    g.appendChild(el('path',{d:`M${num(-cw*0.38)} ${num(R*0.68*s.skirt)}H${num(cw*0.38)}`,
+      fill:'none',stroke:rgba(ink.glow,clamp(0.85*ink.strength,0,1)),'stroke-width':num(Math.max(1,R*0.022))}));
+  }
+  return g;
+}
+
+/* ============================================================
+   4 · render
+   ============================================================ */
+const svg = document.getElementById('rig');
+const stage = document.getElementById('stage');
+let paths=[], packetNodes=[];
+
+function bodyTransform(s){
+  const sy = s.flipY ? -s.scale : s.scale;
+  return `translate(${num(s.x)} ${num(s.y)}) rotate(${num(s.rot)}) scale(${num(s.scale)} ${num(sy)})`;
+}
+
+function render(){
+  const s=state, ink=skinInk(s.skin);
+  applySkinCss(s.skin);
+  stage.classList.toggle('is-adding', !!s.addMode);
+
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  paths=[]; packetNodes=[];
+
+  const body = el('g',{transform:bodyTransform(s),'data-body':'1'});
+  const armsG = el('g',{'data-arms':'1'});
+  for (let i=0;i<s.arms;i++){
+    armsG.appendChild(buildArm(i,s,ink));
+    paths.push(armPath(i,s));
+  }
+  body.appendChild(armsG);
+  body.appendChild(buildMantle(s,ink));
+
+  const pk = el('g',{'data-packets':'1'});
+  if (s.pkOn){
+    for (let i=0;i<s.arms;i++){
+      const n=el('rect',{width:num(R*0.09*s.pkSize),height:num(R*0.09*s.pkSize),
+        x:num(-R*0.045*s.pkSize),y:num(-R*0.045*s.pkSize),fill:rgb(ink.flare),'data-packet':i});
+      pk.appendChild(n); packetNodes.push(n);
+    }
+  }
+  body.appendChild(pk);
+
+  if (s.handlesOn){
+    const hg = el('g',{'data-handles':'1'});
+    for (let i=0;i<s.arms;i++){
+      const {pts} = anchors(i,s);
+      // the chain, drawn so it is obvious what the anchors control
+      let d='';
+      for (let k=0;k<pts.length;k++) d += (k?'L':'M')+num(pts[k].x)+' '+num(pts[k].y)+' ';
+      hg.appendChild(el('path',{d, fill:'none', stroke:rgba(ink.glow,0.35),
+        'stroke-width':1,'stroke-dasharray':'4 4'}));
+      for (let k=0;k<pts.length;k++){
+        const end = (k===0 || k===pts.length-1);
+        hg.appendChild(el('circle',{cx:num(pts[k].x),cy:num(pts[k].y),r:end?6:7,
+          fill:end?rgba(ink.bg,0.9):rgba(ink.glow,0.9), stroke:rgb(ink.glow),'stroke-width':1.6,
+          'data-arm':i,'data-node':k, tabindex:'0', role:'button',
+          'aria-label':`arm ${i+1} anchor ${k+1} of ${pts.length}`, style:'cursor:grab'}));
+      }
+    }
+    body.appendChild(hg);
+  }
+
+  svg.appendChild(body);
+  paintPackets(performance.now());
+  writeJson(); drawShots(); syncReadouts();
+}
+
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function paintPackets(t){
+  const s=state;
+  if (!s.pkOn || !packetNodes.length) return;
+  for (let i=0;i<packetNodes.length;i++){
+    const pts=paths[i]; if (!pts) continue;
+    const u = reduced ? 0.35 : ((t/1000)/s.pkSpeed + i*0.37)%1;
+    const p = pts[clamp(Math.round(u*(pts.length-1)),0,pts.length-1)];
+    packetNodes[i].setAttribute('transform',
+      `translate(${num(p.x)} ${num(p.y)}) rotate(${num(Math.atan2(p.ny,p.nx)*180/Math.PI)})`);
+  }
+}
+let frames=0,lastFps=performance.now();
+function loop(t){
+  paintPackets(t); frames++;
+  if (t-lastFps>1000){ document.getElementById('fps').textContent=frames+' fps'; frames=0; lastFps=t; }
+  requestAnimationFrame(loop);
+}
+function applySkinCss(name){
+  const s=SKINS[name], r=document.documentElement.style;
+  r.setProperty('--bg',s.bg); r.setProperty('--bg-2',s.bg2); r.setProperty('--bg-3',s.bg3);
+  r.setProperty('--fg',s.fg); r.setProperty('--fg-2',s.fg2); r.setProperty('--fg-3',s.fg3);
+  r.setProperty('--glow',s.glow); r.setProperty('--flare',s.flare);
+}
+
+/* ============================================================
+   5 · history and storage
+   ============================================================ */
+let past=[], future=[];
+function snapshot(){ past.push(JSON.stringify(state)); if(past.length>40) past.shift(); future.length=0; syncHistory(); }
+function undo(){ if(!past.length)return; future.push(JSON.stringify(state)); state=JSON.parse(past.pop()); render(); buildPanel(); save(); }
+function redo(){ if(!future.length)return; past.push(JSON.stringify(state)); state=JSON.parse(future.pop()); render(); buildPanel(); save(); }
+function syncHistory(){
+  const u=document.getElementById('undoBtn'), r=document.getElementById('redoBtn');
+  if(u) u.disabled=!past.length; if(r) r.disabled=!future.length;
+}
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify({state,userPresets,shots})); }catch(e){} }
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(STORE)||'null');
+    if(!d||!d.state) return false;
+    state=d.state; userPresets=d.userPresets||{}; shots=d.shots||[];
+    // an older file stored root/mid/tip; carry it over as a 3-anchor chain
+    for (const k in state.over){
+      const o=state.over[k];
+      if (o && !o.pts && (o.root||o.mid||o.tip)){
+        const g=generated(+k,state);
+        o.pts=[o.root||g.pts[0], o.mid||g.pts[1]||g.pts[0], o.tip||g.pts[g.pts.length-1]];
+        delete o.root; delete o.mid; delete o.tip;
+      }
+    }
+    for (const key in PRESETS.crown) if (state[key]===undefined) state[key]=PRESETS.crown[key];
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ============================================================
+   6 · pointer work — move the body, drag anchors, add and delete
+   ============================================================ */
+function svgPoint(evt){
+  const r=svg.getBoundingClientRect(), vb=svg.viewBox.baseVal;
+  // preserveAspectRatio letterboxes the viewBox, so undo that too
+  const scale=Math.min(r.width/vb.width, r.height/vb.height);
+  const ox=(r.width-vb.width*scale)/2, oy=(r.height-vb.height*scale)/2;
+  return {x:(evt.clientX-r.left-ox)/scale, y:(evt.clientY-r.top-oy)/scale};
+}
+function toLocal(p,s){
+  const dx=p.x-s.x, dy=p.y-s.y, a=-s.rot*Math.PI/180;
+  return {x:(dx*Math.cos(a)-dy*Math.sin(a))/s.scale,
+          y:(dx*Math.sin(a)+dy*Math.cos(a))/(s.flipY?-s.scale:s.scale)};
+}
+
+function addAnchorAt(local){
+  const s=state;
+  let bi=-1, bu=0, bd=Infinity;
+  for (let i=0;i<s.arms;i++){
+    const {u,dist}=nearestU(i,s,local);
+    if (dist<bd){ bd=dist; bi=i; bu=u; }
+  }
+  if (bi<0 || bd>60) return false;                 // not near an arm
+  const {pts}=anchors(bi,s);
+  const seg=Math.max(1, Math.min(pts.length-1, Math.floor(bu*(pts.length-1))+1));
+  const list=pts.slice(); list.splice(seg,0,{x:local.x,y:local.y});
+  snapshot(); pinAnchors(bi,list,s); render(); buildPanel(); save();
+  return true;
+}
+function deleteAnchor(i,k){
+  const s=state; const {pts}=anchors(i,s);
+  if (pts.length<=2) return;                        // root and tip stay
+  if (k===0 || k===pts.length-1) return;
+  const list=pts.slice(); list.splice(k,1);
+  snapshot(); pinAnchors(i,list,s); render(); buildPanel(); save();
+}
+
+let drag=null;
+svg.addEventListener('pointerdown',(e)=>{
+  const t=e.target, nodeAttr=t.getAttribute && t.getAttribute('data-node');
+  if (nodeAttr!==null && nodeAttr!==undefined){
+    snapshot();
+    drag={mode:'node', i:+t.getAttribute('data-arm'), k:+nodeAttr};
+    try{ svg.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault(); return;
+  }
+  if (state.addMode){
+    if (addAnchorAt(toLocal(svgPoint(e), state))) { e.preventDefault(); return; }
+  }
+  let n=t;
+  while (n && n!==svg && !(n.getAttribute && n.getAttribute('data-mantle'))) n=n.parentNode;
+  if (n && n!==svg){
+    snapshot();
+    const p=svgPoint(e);
+    drag={mode:'body', ox:p.x-state.x, oy:p.y-state.y};
+    try{ svg.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault();
+  }
+});
+svg.addEventListener('pointermove',(e)=>{
+  if(!drag) return;
+  const p=svgPoint(e);
+  if (drag.mode==='body'){ state.x=p.x-drag.ox; state.y=p.y-drag.oy; }
+  else {
+    const {pts}=anchors(drag.i,state);
+    const local=toLocal(p,state);
+    const list=pts.slice(); list[drag.k]={x:local.x,y:local.y};
+    pinAnchors(drag.i,list,state);
+  }
+  render();
+});
+const endDrag=()=>{ if(drag){ drag=null; save(); } };
+svg.addEventListener('pointerup',endDrag);
+svg.addEventListener('pointercancel',endDrag);
+svg.addEventListener('dblclick',(e)=>{
+  const t=e.target, k=t.getAttribute && t.getAttribute('data-node');
+  if (k===null||k===undefined) return;
+  e.preventDefault();
+  deleteAnchor(+t.getAttribute('data-arm'), +k);
+});
+
+svg.addEventListener('keydown',(e)=>{
+  const t=e.target, kAttr=t.getAttribute && t.getAttribute('data-node');
+  if (kAttr===null||kAttr===undefined) return;
+  const i=+t.getAttribute('data-arm'), k=+kAttr;
+  if (e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); deleteAnchor(i,k); return; }
+  const step=e.shiftKey?10:1;
+  const d={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[e.key];
+  if(!d) return;
+  e.preventDefault();
+  const {pts}=anchors(i,state);
+  const list=pts.slice(); list[k]={x:pts[k].x+d[0], y:pts[k].y+d[1]};
+  snapshot(); pinAnchors(i,list,state); render(); save();
+  const again=svg.querySelector(`[data-arm="${i}"][data-node="${k}"]`);
+  if (again) again.focus();
+});
+stage.addEventListener('keydown',(e)=>{
+  if (e.target!==e.currentTarget) return;
+  const step=e.shiftKey?10:1;
+  const d={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[e.key];
+  if(!d) return;
+  e.preventDefault();
+  snapshot(); state.x+=d[0]; state.y+=d[1]; render(); save();
+});
+
+/* ============================================================
+   7 · control card
+   ============================================================ */
+const SLIDERS=[
+  ['Arms',[
+    ['arms','arm count',4,10,1,v=>v],
+    ['arc','launch arc °',60,340,2,v=>v],
+    ['armLen','arm length',60,340,1,v=>v],
+    ['bow','bow',0,90,1,v=>v],
+    ['twist','twist ° over the arm',0,360,2,v=>v],
+    ['nodes','anchors per arm',2,9,1,v=>v],
+    ['tension','curviness',.2,2.2,.05,v=>v.toFixed(2)],
+    ['taper','taper strength',.4,3,.05,v=>v.toFixed(2)],
+    ['girth','girth',.4,1.8,.02,v=>v.toFixed(2)],
+  ]],
+  ['Plating',[
+    ['plates','plates per arm',3,14,1,v=>v],
+    ['gap','plate gap',.02,.4,.01,v=>v.toFixed(2)],
+    ['joint','joint size',.2,1,.02,v=>v.toFixed(2)],
+    ['hair','hairline weight',.6,3,.1,v=>v.toFixed(1)],
+  ]],
+  ['Mantle',[
+    ['mw','width',.6,1.5,.02,v=>v.toFixed(2)],
+    ['mh','height',.6,1.5,.02,v=>v.toFixed(2)],
+    ['skirt','skirt depth',.4,1.6,.02,v=>v.toFixed(2)],
+    ['apW','aperture width',.3,1.4,.02,v=>v.toFixed(2)],
+    ['apOff','aperture offset',-1,1,.05,v=>v.toFixed(2)],
+  ]],
+  ['Frame',[
+    ['rot','rotation °',-180,180,1,v=>v],
+    ['scale','scale',.4,2.2,.02,v=>v.toFixed(2)],
+  ]],
+  ['Packets',[
+    ['pkSpeed','seconds per arm',1,8,.1,v=>v.toFixed(1)],
+    ['pkSize','packet size',.4,2,.05,v=>v.toFixed(2)],
+  ]],
+];
+/* the two controls that regenerate the chain and so drop hand-placed
+   anchors — flagged so the panel can say so before it happens */
+const REGEN = {nodes:true, arms:true};
+
+function group(name){
+  const g=document.createElement('div'); g.className='group';
+  const h=document.createElement('p'); h.className='group__name'; h.textContent=name;
+  g.appendChild(h); return g;
+}
+function btn(label,fn){
+  const b=document.createElement('button'); b.type='button'; b.textContent=label;
+  b.addEventListener('click',fn); return b;
+}
+function countBends(){ let n=0; for(const k in state.over) if(state.over[k].pts) n++; return n; }
+
+function buildPanel(){
+  const panel=document.getElementById('panel');
+  panel.textContent='';
+
+  const g0=group('Pose');
+  const pres=document.createElement('div'); pres.className='btns';
+  const names=Object.keys(PRESETS);
+  for (const k in userPresets) names.push(k);
+  names.forEach(n=>{
+    const b=btn(n,()=>{
+      snapshot();
+      const src=PRESETS[n]||userPresets[n];
+      state={...state,...JSON.parse(JSON.stringify(src)),preset:n,over:{}};
+      render(); buildPanel(); save();
+    });
+    b.setAttribute('aria-pressed',String(state.preset===n));
+    pres.appendChild(b);
+  });
+  g0.appendChild(pres);
+  const g0b=document.createElement('div'); g0b.className='btns'; g0b.style.marginTop='var(--s-2)';
+  g0b.appendChild(btn('save as preset',()=>{
+    const name=prompt('preset name'); if(!name) return;
+    const copy=JSON.parse(JSON.stringify(state));
+    ['over','skin','symmetry','handlesOn','addMode','preset'].forEach(k=>delete copy[k]);
+    userPresets[name]=copy; save(); buildPanel();
+  }));
+  const ub=btn('undo',undo); ub.id='undoBtn';
+  const rb=btn('redo',redo); rb.id='redoBtn';
+  g0b.appendChild(ub); g0b.appendChild(rb);
+  g0b.appendChild(btn('reset',()=>{ snapshot(); state=fresh('crown'); render(); buildPanel(); save(); }));
+  g0.appendChild(g0b);
+  panel.appendChild(g0);
+
+  /* ---- anchors ---- */
+  const ga=group('Anchors');
+  const arow=document.createElement('div'); arow.className='btns';
+  const add=btn(state.addMode?'click an arm to add':'add anchor',()=>{
+    state.addMode=!state.addMode; render(); buildPanel();
+  });
+  add.setAttribute('aria-pressed',String(state.addMode));
+  arow.appendChild(add);
+  arow.appendChild(btn('anchor at every mid',()=>{
+    snapshot();
+    for (let i=0;i<state.arms;i++){
+      const {pts}=anchors(i,state);
+      const list=[];
+      for (let k=0;k<pts.length;k++){
+        list.push(pts[k]);
+        if (k<pts.length-1) list.push({x:(pts[k].x+pts[k+1].x)/2, y:(pts[k].y+pts[k+1].y)/2});
+      }
+      if (list.length<=9) pinAnchors(i,list,state);
+    }
+    render(); buildPanel(); save();
+  }));
+  arow.appendChild(btn('clear bends',()=>{ snapshot(); state.over={}; render(); buildPanel(); save(); }));
+  ga.appendChild(arow);
+  const an=document.createElement('p'); an.className='note';
+  an.textContent = `Drag any anchor to bend the arm through it. Double-click or press Delete on a middle anchor to remove it. ${countBends()} of ${state.arms} arms have hand-placed chains.`;
+  ga.appendChild(an);
+  panel.appendChild(ga);
+
+  /* ---- symmetry ---- */
+  const g1=group('Symmetry');
+  const row=document.createElement('div'); row.className='btns';
+  const sym=btn(state.symmetry?'mirrored: on':'mirrored: off',()=>{
+    snapshot(); state.symmetry=!state.symmetry; render(); buildPanel(); save();
+  });
+  sym.setAttribute('aria-pressed',String(state.symmetry));
+  row.appendChild(sym);
+  row.appendChild(btn('re-mirror from left',()=>{
+    snapshot();
+    const n=state.arms;
+    for (let i=0;i<Math.floor(n/2);i++){
+      const j=n-1-i, o=state.over[i];
+      if (!o||!o.pts){ delete state.over[j]; continue; }
+      if (!state.over[j]) state.over[j]={};
+      state.over[j].pts=o.pts.map(p=>({x:-p.x,y:p.y}));
+    }
+    render(); save();
+  }));
+  const hb=btn(state.handlesOn?'handles: on':'handles: off',()=>{
+    state.handlesOn=!state.handlesOn; render(); buildPanel(); save();
+  });
+  hb.setAttribute('aria-pressed',String(state.handlesOn));
+  row.appendChild(hb);
+  g1.appendChild(row);
+  const note=document.createElement('p'); note.className='note';
+  note.textContent='Arms pair 1↔8, 2↔7, 3↔6, 4↔5. Drag a left anchor and its partner mirrors live.';
+  g1.appendChild(note);
+  panel.appendChild(g1);
+
+  /* ---- sliders ---- */
+  SLIDERS.forEach(([name,rows])=>{
+    const g=group(name);
+    rows.forEach(([key,label,min,max,step,fmt])=>{
+      const r=document.createElement('div'); r.className='row';
+      const l=document.createElement('label'); l.textContent=label; l.htmlFor='sl-'+key;
+      const o=document.createElement('output'); o.id='out-'+key; o.textContent=fmt(state[key]);
+      const inp=document.createElement('input');
+      inp.type='range'; inp.id='sl-'+key; inp.min=min; inp.max=max; inp.step=step; inp.value=state[key];
+      inp.dataset.fmtKey=key;
+      let dirty=false;
+      const begin=()=>{ if(!dirty){ snapshot(); dirty=true; } };
+      inp.addEventListener('pointerdown',begin);
+      inp.addEventListener('keydown',begin);
+      inp.addEventListener('input',()=>{
+        state[key]=+inp.value; o.textContent=fmt(+inp.value);
+        if (REGEN[key]) state.over={};       // the chain itself changed shape
+        render();
+      });
+      inp.addEventListener('change',()=>{ dirty=false; if(REGEN[key]) buildPanel(); save(); });
+      r.appendChild(l); r.appendChild(o); r.appendChild(inp);
+      g.appendChild(r);
+    });
+    if (name==='Arms'){
+      const n=document.createElement('p'); n.className='note';
+      n.textContent='Twist spirals the whole chain; curviness is how hard the curve pulls through each anchor. Changing arm count or anchors per arm regenerates the chains and drops hand-placed anchors.';
+      g.appendChild(n);
+    }
+    if (name==='Frame'){
+      const b=document.createElement('div'); b.className='btns';
+      const f=btn(state.flipY?'flipped':'flip vertical',()=>{ snapshot(); state.flipY=!state.flipY; render(); buildPanel(); save(); });
+      f.setAttribute('aria-pressed',String(state.flipY));
+      b.appendChild(f);
+      b.appendChild(btn('centre',()=>{ snapshot(); state.x=450; state.y=330; render(); save(); }));
+      g.appendChild(b);
+    }
+    if (name==='Packets'){
+      const b=document.createElement('div'); b.className='btns';
+      const p=btn(state.pkOn?'packets: on':'packets: off',()=>{ snapshot(); state.pkOn=!state.pkOn; render(); buildPanel(); save(); });
+      p.setAttribute('aria-pressed',String(state.pkOn));
+      b.appendChild(p); g.appendChild(b);
+      if (reduced){
+        const n=document.createElement('p'); n.className='note';
+        n.textContent='Reduced motion is on, so packets are parked at 35% along each arm.';
+        g.appendChild(n);
+      }
+    }
+    panel.appendChild(g);
+  });
+
+  /* ---- skins ---- */
+  const g2=group('Skin');
+  const sw=document.createElement('div'); sw.className='swatches';
+  Object.keys(SKINS).forEach(n=>{
+    const b=document.createElement('button');
+    b.className='swatch'; b.title=n; b.setAttribute('aria-label','skin '+n);
+    b.style.background=SKINS[n].bg; b.style.borderColor=SKINS[n].fg3;
+    b.setAttribute('aria-pressed',String(state.skin===n));
+    const i=document.createElement('i'); i.style.setProperty('--dot',SKINS[n].glow);
+    b.appendChild(i);
+    b.addEventListener('click',()=>{ state.skin=n; render(); buildPanel(); save(); });
+    sw.appendChild(b);
+  });
+  g2.appendChild(sw); panel.appendChild(g2);
+
+  /* ---- compare ---- */
+  const g3=group('Compare');
+  const sh=document.createElement('div'); sh.className='shots'; sh.id='shots';
+  g3.appendChild(sh);
+  const sb=document.createElement('div'); sb.className='btns'; sb.style.marginTop='var(--s-2)';
+  sb.appendChild(btn('pin this pose',()=>{
+    if (shots.length>=3) shots.shift();
+    shots.push(JSON.parse(JSON.stringify(state)));
+    drawShots(); save();
+  }));
+  g3.appendChild(sb); panel.appendChild(g3);
+
+  /* ---- export ---- */
+  const g4=group('Export');
+  const eb=document.createElement('div'); eb.className='btns';
+  eb.appendChild(btn('download svg',downloadSvg));
+  eb.appendChild(btn('copy config',copyConfig));
+  g4.appendChild(eb);
+  const det=document.createElement('details');
+  const sum=document.createElement('summary'); sum.textContent='config json';
+  const pre=document.createElement('pre'); pre.id='json';
+  det.appendChild(sum); det.appendChild(pre); g4.appendChild(det);
+  panel.appendChild(g4);
+
+  syncHistory(); writeJson(); drawShots();
+}
+
+/** keep the readouts honest when state changes from outside a slider */
+function syncReadouts(){
+  const inputs=document.querySelectorAll('#panel input[type=range]');
+  for (let i=0;i<inputs.length;i++){
+    const key=inputs[i].dataset.fmtKey;
+    if (key && +inputs[i].value !== state[key]) inputs[i].value = state[key];
+  }
+}
+function writeJson(){
+  const pre=document.getElementById('json');
+  if (pre) pre.textContent=JSON.stringify(state,null,2);
+}
+function drawShots(){
+  const host=document.getElementById('shots');
+  if(!host) return;
+  host.textContent='';
+  for (let i=0;i<3;i++){
+    if (!shots[i]){
+      const d=document.createElement('div'); d.className='shot shot--empty'; d.textContent='—';
+      host.appendChild(d); continue;
+    }
+    const b=document.createElement('button'); b.className='shot'; b.title='restore this pose';
+    b.appendChild(miniSvg(shots[i]));
+    b.addEventListener('click',()=>{ snapshot(); state=JSON.parse(JSON.stringify(shots[i])); render(); buildPanel(); save(); });
+    const k=document.createElement('button'); k.className='shot__kill'; k.textContent='×'; k.title='unpin';
+    k.addEventListener('click',(e)=>{ e.stopPropagation(); shots.splice(i,1); drawShots(); save(); });
+    b.appendChild(k); host.appendChild(b);
+  }
+}
+function miniSvg(cfg){
+  const ink=skinInk(cfg.skin);
+  const s={...cfg,x:0,y:0,rot:0,scale:1,flipY:false};
+  const out=el('svg',{viewBox:'-360 -360 720 720'});
+  out.appendChild(el('rect',{x:-360,y:-360,width:720,height:720,fill:rgb(ink.bg3)}));
+  const g=el('g',{});
+  for (let i=0;i<s.arms;i++) g.appendChild(buildArm(i,s,ink));
+  g.appendChild(buildMantle(s,ink));
+  out.appendChild(g); return out;
+}
+
+/* ============================================================
+   8 · export
+   ============================================================ */
+function exportedSvg(){
+  const clone=svg.cloneNode(true);
+  const h=clone.querySelector('[data-handles]');
+  if (h) h.remove();
+  clone.setAttribute('xmlns',NS);
+  clone.setAttribute('width','900'); clone.setAttribute('height','700');
+  const ink=skinInk(state.skin);
+  clone.insertBefore(el('rect',{x:0,y:0,width:900,height:700,fill:rgb(ink.bg)}), clone.firstChild);
+  return '<?xml version="1.0" encoding="UTF-8"?>\n'+clone.outerHTML;
+}
+function downloadSvg(){
+  const blob=new Blob([exportedSvg()],{type:'image/svg+xml'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`octopus-${state.preset||'pose'}.svg`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+function copyConfig(){
+  const txt=JSON.stringify(state,null,2);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+  else {
+    const ta=document.createElement('textarea');
+    ta.value=txt; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  const hint=document.getElementById('hint'), was=hint.textContent;
+  hint.textContent='config copied to clipboard';
+  setTimeout(()=>{ hint.textContent=was; },1600);
+}
+
+/* ============================================================
+   9 · boot
+   ============================================================ */
+if (!load()) state=fresh('crown');
+render();
+buildPanel();
+if (!reduced) requestAnimationFrame(loop);
+
+/* a surface for verification, and for porting the pose later */
+window.__poser={
+  get state(){ return state; },
+  set(k,v){ state[k]=v; if(REGEN[k]) state.over={}; render(); },
+  anchors:(i)=>anchors(i,state).pts,
+  setAnchor(i,k,pt){ const l=anchors(i,state).pts.slice(); l[k]={x:pt.x,y:pt.y}; pinAnchors(i,l,state); render(); },
+  addAnchorAt, deleteAnchor,
+  plateSpans:()=>plateSpans(state),
+  at:(i,t)=>armCurve(i,state).at(t),
+  armLength(i){ const {at}=armCurve(i,state); let L=0,p=at(0);
+    for(let k=1;k<=200;k++){const q=at(k/200); L+=Math.hypot(q.x-p.x,q.y-p.y); p=q;} return L; },
+  exportedSvg, render,
+};
+</script>
+</body>
+</html>

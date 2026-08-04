@@ -18,8 +18,8 @@ const half = Math.ceil(arms.length / 2);
       </p>
     </div>
 
-    <!-- The page is the animal. One tentacle per branch; each arm physically
-         reaches the label it belongs to. Hover a branch to tighten its arm. -->
+    <!-- One approved pose, drawn at full size above the branches. Hover a
+         branch to light the arm that belongs to it. See src/data/pose.ts. -->
     <div class="crown" data-crown>
       <canvas class="crown__canvas" aria-hidden="true"></canvas>
       <div class="crown__hub" aria-hidden="true"></div>
@@ -33,7 +33,6 @@ const half = Math.ceil(arms.length / 2);
               data-arm={i}
               style={`--row:${(i % half) + 1}`}
             >
-              <span class="branch__anchor" aria-hidden="true" />
               <span class="branch__no">{String(i + 1).padStart(2, '0')}</span>
               <h3 class="branch__name">{a.name}</h3>
               <p class="branch__note">{a.note}</p>

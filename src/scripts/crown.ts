@@ -1,210 +1,60 @@
 /* ============================================================
-   crown.ts — the page IS the animal
+   crown.ts — the animal in the Arms section
    ------------------------------------------------------------
-   Not a creature swimming behind the content. A mantle anchored
-   in the middle of the section, with one tentacle per branch of
-   what I do, each arm physically reaching the label it belongs
-   to. Arm targets are read from the DOM, so CSS owns the layout
-   and the canvas only draws the connective tissue.
+   This draws ONE approved pose, authored in
+   tools/octopus-poser.html and stored in src/data/pose.ts. It is
+   not solved, aimed or animated: the anchor chains are fixed, so
+   the silhouette is identical on every load and nothing can
+   shiver. The only thing that moves is a packet.
 
-   Flat 2D throughout — the drawing language lives in rig.ts.
-   Hovering or focusing a branch tightens that arm and slides the
-   aperture toward it. Nothing drifts; nothing swims.
+   The pose is authored in mantle units (R = 100) and scaled to
+   fill whatever box the layout hands it, so it renders at full
+   size in a wide window without a coordinate changing here.
+
+   Hovering a branch still lights its arm — branch n holds arm n,
+   by index rather than by a drawn contact.
    ============================================================ */
 
-import {
-  type Skin,
-  type Vec,
-  TAU,
-  clamp,
-  lerp,
-  smoothstep,
-  lerpAngle,
-  readSkin,
-} from './palette';
-import { type Sample, drawClamp, drawLead, drawLimb, drawMantle, drawPacket } from './rig';
+import { clamp, readSkin } from './palette';
+import { type Sample, chainSamples, drawLimb, drawMantle, drawPacket } from './rig';
+import { pose, poseExtent } from '../data/pose';
 
-const SEGMENTS = 26;
-/** arms carrying a packet; not all eight, or it reads as a chase light */
-const HOT = [0, 2, 3, 5, 7];
-
-/* ---------------------------------------------------------------
-   one arm, permanently attached to one branch
-   --------------------------------------------------------------- */
-class Arm {
-  el: HTMLElement;
-  anchor: HTMLElement;
-  root: Vec = { x: 0, y: 0 };
-  /** where the arm itself ends — on the reach circle, same for all eight */
-  target: Vec = { x: 0, y: 0 };
-  /** where the branch is; the lead line covers the gap */
-  label: Vec = { x: 0, y: 0 };
-  angles: number[] = [];
-  pos: Vec[] = [];
-  /** 0 resting → 1 hovered/focused */
-  emphasis = 0;
-  wanted = 0;
-  reachLen = 200;
-  baseAngle = 0;
-  /** the direction this arm leaves the crown in — set by layout so the
-      eight arms fan across a wide arc instead of hanging in a bundle */
-  fan = Math.PI / 2;
-  /** half-width at the crown; narrower when the arms share a tight lane */
-  girth = 12;
-  /** the one length every arm is built to, set by layout */
-  armLen = 180;
-
-  constructor(el: HTMLElement, anchor: HTMLElement) {
-    this.el = el;
-    this.anchor = anchor;
-    for (let i = 0; i < SEGMENTS; i++) {
-      this.angles.push(0);
-      this.pos.push({ x: 0, y: 0 });
-    }
-  }
-
-  update(dt: number, unit: number) {
-    this.emphasis += (this.wanted - this.emphasis) * clamp(dt * 5, 0, 1);
-
-    const dx = this.target.x - this.root.x;
-    const dy = this.target.y - this.root.y;
-    this.baseAngle = Math.atan2(dy, dx);
-
-    // Every arm is routed through a via point that is most of the way
-    // out sideways but only a third of the way down. That is what makes
-    // the eight arms separate immediately instead of hanging in one
-    // bundle and only splaying at the tips.
-    const viaX = this.root.x + dx * 0.8;
-    const viaY = this.root.y + dy * 0.32;
-
-    // One length for all eight, set by layout — not derived from how far
-    // this particular branch happens to be. An arm whose label is nearer
-    // than its length takes up the slack as a bow.
-    this.reachLen = this.armLen * (1 - this.emphasis * 0.03);
-    const segLen = this.reachLen / SEGMENTS;
-
-    let px = this.root.x;
-    let py = this.root.y;
-
-    for (let i = 0; i < SEGMENTS; i++) {
-      const k = i / (SEGMENTS - 1);
-
-      // the aim point slides from the via to the label as we travel out
-      const handover = smoothstep(0.42, 0.86, k);
-      const aimX = lerp(viaX, this.target.x, handover);
-      const aimY = lerp(viaY, this.target.y, handover);
-
-      const prev = this.pos[i]!;
-      const toAim = Math.atan2(aimY - prev.y, aimX - prev.x);
-      // leaves the crown along its fan direction, then hands over
-      const commit = smoothstep(0.08, 0.62, k) * (0.86 + this.emphasis * 0.12);
-      const want = lerpAngle(this.fan, toAim, commit);
-
-      this.angles[i] = lerpAngle(this.angles[i]!, want, clamp(dt * 7, 0, 1));
-
-      // joint limit — a tentacle bends, it does not hinge. Without this
-      // an arm with any slack folds back and renders as a spike.
-      if (i > 0) {
-        const prevA = this.angles[i - 1]!;
-        let d = ((this.angles[i]! - prevA + Math.PI) % TAU) - Math.PI;
-        if (d < -Math.PI) d += TAU;
-        const LIMIT = 0.26;
-        if (d > LIMIT) this.angles[i] = prevA + LIMIT;
-        else if (d < -LIMIT) this.angles[i] = prevA - LIMIT;
-      }
-
-      const len = segLen * (1.2 - k * 0.44);
-      px += Math.cos(this.angles[i]!) * len;
-      py += Math.sin(this.angles[i]!) * len;
-      this.pos[i]!.x = px;
-      this.pos[i]!.y = py;
-    }
-    void unit;
-  }
-
-  /** the chain, resampled with normals for the shared rig drawing */
-  private samples(): Sample[] {
-    const out: Sample[] = [];
-    for (let i = 0; i < SEGMENTS; i++) {
-      // The chain settles a few pixels short of its label. Pull the last
-      // stretch onto the target so the clamp actually touches what it is
-      // holding — spread over the final segments, or the tip kinks.
-      const k = i / (SEGMENTS - 1);
-      const pull = smoothstep(0.72, 1, k);
-      const p = this.pos[i]!;
-      const prev = i === 0 ? this.root : this.pos[i - 1]!;
-      const x = lerp(p.x, this.target.x, pull * (k === 1 ? 1 : pull));
-      const y = lerp(p.y, this.target.y, pull * (k === 1 ? 1 : pull));
-      const dx = p.x - prev.x;
-      const dy = p.y - prev.y;
-      const l = Math.hypot(dx, dy) || 1;
-      out.push({ x, y, nx: -dy / l, ny: dx / l, t: k });
-    }
-    return out;
-  }
-
-  draw(ctx: CanvasRenderingContext2D, unit: number, skin: Skin) {
-    const pts = this.samples();
-    const base = this.girth * (1 + this.emphasis * 0.16);
-    drawLimb(ctx, pts, (t) => base * Math.pow(1 - t, 1.5) + unit * 0.02, skin, unit, this.emphasis);
-    this.cache = pts;
-
-    // Every arm stops on the same circle, so all eight are one length.
-    // The clamp sits at that stop, squared to the arm, and a lead line
-    // carries the last stretch to the branch it belongs to.
-    const tip = pts[SEGMENTS - 1]!;
-    const prev = pts[SEGMENTS - 2] ?? tip;
-    if (Math.hypot(this.label.x - tip.x, this.label.y - tip.y) > 2) {
-      drawLead(ctx, tip, this.label, unit, skin, this.emphasis);
-    }
-    drawClamp(
-      ctx,
-      tip.x,
-      tip.y,
-      Math.atan2(tip.y - prev.y, tip.x - prev.x),
-      unit,
-      skin,
-      this.emphasis,
-    );
-  }
-
-  /** last drawn centreline, reused by the packet pass */
-  cache: Sample[] = [];
+interface Limb {
+  /** the pose chain, already scaled and placed in canvas space */
+  pts: Sample[];
+  /** 0 resting → 1 hovered or focused */
+  emphasis: number;
+  wanted: number;
+  el: HTMLElement | null;
 }
 
-/* ---------------------------------------------------------------
-   mount
-   --------------------------------------------------------------- */
 export function mountCrown(root: HTMLElement): void {
   const maybeCanvas = root.querySelector<HTMLCanvasElement>('canvas');
-  const maybeHub = root.querySelector<HTMLElement>('.crown__hub');
-  const branches = Array.from(root.querySelectorAll<HTMLElement>('.branch'));
-  if (!maybeCanvas || !maybeHub || !branches.length) return;
-
+  const maybeStage = root.querySelector<HTMLElement>('.crown__hub');
+  if (!maybeCanvas || !maybeStage) return;
   const maybeCtx = maybeCanvas.getContext('2d');
   if (!maybeCtx) return;
 
-  // explicit annotations so the narrowing survives into the hoisted
-  // function declarations below
   const canvas: HTMLCanvasElement = maybeCanvas;
-  const hub: HTMLElement = maybeHub;
+  const stage: HTMLElement = maybeStage;
   const ctx: CanvasRenderingContext2D = maybeCtx;
-
+  const branches = Array.from(root.querySelectorAll<HTMLElement>('.branch'));
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let skin = readSkin();
-
-  const arms: Arm[] = [];
-  for (const el of branches) {
-    const anchor = el.querySelector<HTMLElement>('.branch__anchor');
-    if (anchor) arms.push(new Arm(el, anchor));
-  }
-
   let w = 0;
   let h = 0;
-  let unit = 70;
-  const hubPt: Vec = { x: 0, y: 0 };
-  let look: Vec | null = null;
+  /** the mantle radius in canvas pixels — every dimension derives from it */
+  let unit = 100;
+  let cx = 0;
+  let cy = 0;
+
+  const limbs: Limb[] = pose.arms.map((_, i) => ({
+    pts: [],
+    emphasis: 0,
+    wanted: 0,
+    el: branches[i] ?? null,
+  }));
 
   function measure() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -216,151 +66,83 @@ export function mountCrown(root: HTMLElement): void {
     canvas.style.height = `${h}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    // fit the pose into the stage box, then centre it there
     const base = root.getBoundingClientRect();
-    const hr = hub.getBoundingClientRect();
-    // the mantle silhouette spans -1.50u … +0.98u vertically and
-    // ±0.92u horizontally, so size it to sit inside the hub box
-    unit = clamp(Math.min(hr.height * 0.4, hr.width * 0.52), 40, 116);
-    const narrow = w < 900;
-    hubPt.x = hr.left - base.left + hr.width / 2;
-    // Two-column layout: the hub box spans every row, so the mantle hangs
-    // level with the middle of the branch stack and the arms radiate up
-    // and down out of the skirt. Single column: the box is one row at the
-    // top, so seat the mantle inside it as before.
-    hubPt.y = narrow
-      ? hr.top - base.top + unit * 1.52
-      : hr.top - base.top + hr.height / 2;
+    const box = stage.getBoundingClientRect();
+    const ext = poseExtent(pose);
+    const scale = Math.min(
+      box.width / (ext.x1 - ext.x0),
+      box.height / (ext.y1 - ext.y0),
+    );
+    unit = 100 * scale;
+    cx = box.left - base.left + box.width / 2 - ((ext.x0 + ext.x1) / 2) * scale;
+    cy = box.top - base.top + box.height / 2 - ((ext.y0 + ext.y1) / 2) * scale;
 
-    for (const arm of arms) {
-      const ar = arm.anchor.getBoundingClientRect();
-      arm.label.x = ar.left - base.left + ar.width / 2;
-      arm.label.y = ar.top - base.top + ar.height / 2;
-    }
-
-    // (roots are placed below, and the arm length depends on them)
-
-    // Order the roots along the crown by where their branch sits, so no
-    // two arms cross. The key is the angle measured clockwise from
-    // straight UP: -π at down-left, 0 overhead, +π at down-right. Measured
-    // from straight down instead, targets above the mantle land either side
-    // of the ±π wrap and the sort scrambles them.
-    const phi = (t: Vec) => Math.atan2(t.x - hubPt.x, -(t.y - hubPt.y));
-    // back to a world angle (0 = +x, y down) for the chain to launch along
-    const world = (p: number) => Math.atan2(-Math.cos(p), Math.sin(p));
-
-    const order = arms
-      .map((arm, i) => ({ i, key: phi(arm.label) }))
-      .sort((a, b) => a.key - b.key);
-
-    // The launch arc is derived from where the branches actually are,
-    // not hardcoded — otherwise the single-column mobile layout sends
-    // half the arms sweeping across the text before they turn back.
-    const keys = order.map((o) => o.key);
-    const PAD = 0.5;
-    // Single-column layout puts every branch down the left, so the arc is
-    // pinned down-and-left (−169° … −102° from overhead). Any rightward
-    // launch angle would send an arm sweeping across the text before it
-    // turned back.
-    const lo = narrow ? -2.95 : Math.min(...keys) - PAD;
-    const hi = narrow ? -1.78 : Math.max(...keys) + PAD;
-
-    const n = Math.max(1, order.length - 1);
-    order.forEach((o, slot) => {
-      const t = order.length === 1 ? 0.5 : slot / n;
-      const spread = t - 0.5;
-      const arm = arms[o.i]!;
-      arm.fan = world(lerp(lo, hi, t));
-      arm.girth = unit * (narrow ? 0.115 : 0.175);
-      // An arm that has to reach a branch above the mantle should not
-      // start under the skirt and climb past the face — it comes out of
-      // the mantle's side instead, and the body (drawn last) hides the
-      // join. 0 for a downward arm, 1 for one launching straight up.
-      const rising = clamp(-Math.sin(arm.fan), 0, 1);
-      const side = Math.sign(spread) || 1;
-      arm.root.x =
-        hubPt.x + spread * unit * (narrow ? 0.9 : 1.34) + side * rising * unit * 0.18;
-      arm.root.y =
-        hubPt.y +
-        unit * (0.72 - rising * 0.95) -
-        Math.abs(spread) * unit * 0.2 * (1 - rising);
-      // seed the chain along the fan so the first frame is already a
-      // plausible pose rather than a straight spike
-      for (let s = 0; s < SEGMENTS; s++) {
-        arm.pos[s]!.x = arm.root.x;
-        arm.pos[s]!.y = arm.root.y;
-        arm.angles[s] = arm.fan;
-      }
-    });
-
-    // ONE LENGTH, MEASURED FROM EACH ARM'S OWN ROOT.
-    // Measuring it from the mantle centre instead is what crushed the
-    // lower arms: their roots already sit most of a unit below the
-    // centre, so a shared radius left them a few dozen pixels of path to
-    // fit 26 segments into, and they rendered as a knot of plates.
-    const spans = arms.map((a) => Math.hypot(a.label.x - a.root.x, a.label.y - a.root.y));
-    const len = clamp(unit * 2.7, unit * 1.6, Math.max(...spans) * 0.95);
-    for (const arm of arms) {
-      const dx = arm.label.x - arm.root.x;
-      const dy = arm.label.y - arm.root.y;
-      const d = Math.hypot(dx, dy) || 1;
-      arm.armLen = len;
-      if (d <= len) {
-        // the arm is long enough to hold its own branch; the slack bows out
-        arm.target.x = arm.label.x;
-        arm.target.y = arm.label.y;
-      } else {
-        // too far to hold — stop at length and route the rest as a lead
-        arm.target.x = arm.root.x + (dx / d) * len;
-        arm.target.y = arm.root.y + (dy / d) * len;
-      }
+    for (let i = 0; i < limbs.length; i++) {
+      const chain = pose.arms[i]!.map((a) => ({
+        x: cx + a.x * scale,
+        y: cy + a.y * scale,
+      }));
+      limbs[i]!.pts = chainSamples(chain, pose.tension);
     }
   }
 
-  /** the aperture tracks whichever branch has hold of an arm */
-  function lookX(): number {
-    if (!look) return 0;
-    return clamp((look.x - hubPt.x) / (unit * 2.4), -1, 1);
-  }
+  const widthAt = (t: number) => {
+    const girth = unit * 0.17 * pose.girth;
+    return 1.2 + (girth - 1.2) * Math.pow(1 - t, pose.taper);
+  };
 
   function compose(now: number) {
     ctx.clearRect(0, 0, w, h);
+
     // resting arms first, the emphasised one on top
-    const sorted = [...arms].sort((a, b) => a.emphasis - b.emphasis);
-    for (const arm of sorted) arm.draw(ctx, unit, skin);
-    if (!reduced) {
-      HOT.forEach((i, slot) => {
-        const arm = arms[i % arms.length];
-        if (!arm?.cache.length) return;
-        drawPacket(ctx, arm.cache, (now / 3400 + slot * 0.19) % 1, skin, unit);
+    const order = [...limbs].sort((a, b) => a.emphasis - b.emphasis);
+    for (const limb of order) {
+      if (!limb.pts.length) continue;
+      drawLimb(ctx, limb.pts, widthAt, skin, unit, limb.emphasis, {
+        plates: pose.plates,
+        gap: pose.gap,
+        joint: pose.joint,
+        hair: Math.max(0.8, pose.hair * (unit / 100)),
       });
     }
-    drawMantle(ctx, hubPt.x, hubPt.y, unit, skin, { lookX: lookX() });
+
+    // a packet on every arm, staggered so they do not march in step
+    if (!reduced && pose.packets) {
+      for (let i = 0; i < limbs.length; i++) {
+        const limb = limbs[i]!;
+        if (!limb.pts.length) continue;
+        const u = (now / 1000 / pose.packetSeconds + i * 0.37) % 1;
+        drawPacket(ctx, limb.pts, u, skin, unit * pose.packetSize);
+      }
+    }
+
+    // the mantle's own proportions come from the pose too, so the shape the
+    // poser showed is the shape that ships
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(pose.mw, pose.mh);
+    drawMantle(ctx, 0, 0, unit, skin, { lookX: pose.apOff });
+    ctx.restore();
   }
 
   let raf = 0;
-  let last = performance.now();
-  let clock = reduced ? 1.6 : 0;
   let onScreen = true;
+  let last = performance.now();
 
   function frame(now: number) {
     const dt = clamp((now - last) / 1000, 0, 0.05);
     last = now;
-    clock += dt;
-
-    for (const arm of arms) arm.update(dt, unit);
+    // geometry is fixed; only the hover weighting and the packets move
+    for (const limb of limbs) {
+      limb.emphasis += (limb.wanted - limb.emphasis) * clamp(dt * 5, 0, 1);
+    }
     compose(now);
-
     if (onScreen && !reduced) raf = requestAnimationFrame(frame);
   }
-
   function still() {
-    // settle the chains, then draw one composed pose
-    for (let s = 0; s < 90; s++) {
-      for (const arm of arms) arm.update(1 / 60, unit);
-    }
     compose(0);
   }
-
   function restart() {
     if (reduced) {
       still();
@@ -373,8 +155,6 @@ export function mountCrown(root: HTMLElement): void {
 
   const ro = new ResizeObserver(() => {
     measure();
-    // settle and paint immediately, so a reflow never leaves the section
-    // holding a stale pose (or an empty canvas) until the next frame
     still();
     restart();
   });
@@ -385,7 +165,6 @@ export function mountCrown(root: HTMLElement): void {
       for (const e of entries) {
         onScreen = e.isIntersecting;
         if (onScreen) {
-          // paint the pose on the way in rather than one frame later
           still();
           restart();
         } else cancelAnimationFrame(raf);
@@ -397,37 +176,35 @@ export function mountCrown(root: HTMLElement): void {
 
   new MutationObserver(() => {
     skin = readSkin();
-    // repaint in step with the CSS skin transition, not a frame behind it
     still();
   }).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-skin'],
   });
 
-  for (const arm of arms) {
+  for (const limb of limbs) {
+    const el = limb.el;
+    if (!el) continue;
     const on = () => {
-      for (const a of arms) a.wanted = 0;
-      arm.wanted = 1;
-      look = arm.target;
-      arm.el.classList.add('is-held');
+      for (const l of limbs) l.wanted = 0;
+      limb.wanted = 1;
+      el.classList.add('is-held');
       if (reduced) still();
     };
     const off = () => {
-      arm.wanted = 0;
-      look = null;
-      arm.el.classList.remove('is-held');
+      limb.wanted = 0;
+      el.classList.remove('is-held');
       if (reduced) still();
     };
-    arm.el.addEventListener('pointerenter', on);
-    arm.el.addEventListener('focusin', on);
-    arm.el.addEventListener('pointerleave', off);
-    arm.el.addEventListener('focusout', off);
+    el.addEventListener('pointerenter', on);
+    el.addEventListener('focusin', on);
+    el.addEventListener('pointerleave', off);
+    el.addEventListener('focusout', off);
   }
 
   measure();
-  // one settled pose on mount, before the loop takes over
   still();
-  // fonts change the label boxes, which move every arm target
+  // fonts change the box, which changes the fit
   document.fonts?.ready.then(() => {
     measure();
     still();

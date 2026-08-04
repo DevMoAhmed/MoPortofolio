@@ -33,20 +33,22 @@ npm run check     # TypeScript + Astro diagnostics
 ```
 src/
   data/site.ts        ← ALL CONTENT. Edit this, not the components.
+  data/pose.ts        ← the approved octopus pose, exported from the poser
   styles/
     tokens.css        ← design system: skins, spacing, type scale, radius
     base.css          ← reset, typography, shared primitives
     layout.css        ← one grid per section (no shared card component)
   scripts/
     palette.ts        ← skin reading + colour maths shared by both canvases
-    rig.ts            ← how the animal is drawn: mantle, limb, inlay, clamp
-    crown.ts          ← arm kinematics: eight chains reaching eight branches
+    rig.ts            ← how the animal is drawn: mantle, limb, plates, clamp
+    crown.ts          ← draws the approved pose, scaled to its band
     dock.ts           ← the hero rig: same animal, short arms, eight clamps
     site.ts           ← skin switch, depth gauge, tabs, role cycle, reveals
   components/         ← one file per section
   layouts/Base.astro  ← <head>, fonts, pre-paint skin restore
   pages/index.astro   ← section order
 public/favicon.svg
+tools/octopus-poser.html  ← the pose editor. Not shipped; not part of the build.
 ```
 
 ## The design rules (deliberate — please keep them if you edit)
@@ -65,36 +67,31 @@ public/favicon.svg
 
 ## The crown (Eight Arms section)
 
-The animal is not decoration floating behind the page — it **is** the page's
-structure. The mantle sits in the middle column of `.crown`, spanning every row
-so it hangs level with the middle of the branch stack — four branches above it,
-four below, arms radiating out of the skirt in both directions. Each of the
-eight branches has a `.branch__anchor`, and `crown.ts` reads those boxes from
-the DOM and grows one tentacle to each. So:
+The animal is **one approved pose**, not a simulation. It was shaped in
+`tools/octopus-poser.html` — drag the body, bend mirrored arms by their anchors,
+tune the plating — and exported to `src/data/pose.ts` as eight anchor chains in
+mantle units (R = 100, origin at the mantle centre). `crown.ts` scales that pose
+to fit `.crown__hub` and draws it. To change the animal: open the poser, shape
+it, hit COPY CONFIG, replace the object in `pose.ts`. No other file changes.
+
+Consequences worth knowing, because an earlier version worked the other way:
+
+- **The pose is fixed.** Nothing is solved per frame, so the silhouette is
+  identical on every load and cannot shiver. The only thing that moves is a
+  packet, and there is one on every arm.
+- **Arms no longer reach the branch labels.** The approved pose is a starburst;
+  the branches sit underneath it, four to a column. Hovering a branch still
+  lights its arm — branch *n* holds arm *n*, by index rather than by contact.
+- **The animal gets the full width of the section.** Flanking it with two text
+  columns squeezed it into a 270px lane; `.crown__hub` is now a full-width band
+  with the pose's own aspect ratio, so no arm is clipped.
 
 Both canvases draw in the same language, which lives in `rig.ts`, and it is
 **flat 2D**: no gradients, no radial shading, no glow sprites, no rim lights, no
 composite blending. A solid mantle with **one aperture instead of two eyes**;
-limbs built rather than grown — cut into seven plates with a visible gap and a
-pinned joint at every seam; a clamp where the arm terminates; a right-angled
-lead running from that clamp to the branch it serves; and packets travelling
-the arm. `crown.ts` and `dock.ts` only decide where the arms *go*.
-
-**All eight arms are one length.** They stop on a shared circle around the
-mantle rather than each stretching to its own label, because four short arms and
-four long ones read as a limp. The lead line covers whatever is left.
-
-Nothing idles. The arms settle into a pose and hold it — no breathing, no sway,
-no twinkle. The only thing that moves on this animal is a packet.
-
-- Move a branch in CSS and its arm and lead follow. No hardcoded coordinates.
-- Reorder or add a branch in `src/data/site.ts` and the fan re-sorts itself so
-  no two arms cross.
-- Hovering a branch tightens its arm, brightens its inlay and clamp, and the
-  aperture slides toward it.
-- The launch arc is derived from where the branches actually are, which is why
-  the single-column mobile layout hangs all eight arms down the left lane
-  instead of sweeping them across the copy.
+limbs cut into plates with a visible gap and a pinned joint at every seam; a
+clamp where the arm terminates. Plates are cut on the curve parameter, so plate
+count and gap never depend on how finely the arm was sampled.
 
 ## The dock (hero)
 

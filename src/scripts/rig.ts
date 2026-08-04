@@ -56,12 +56,77 @@ function traceEdge(
   }
 }
 
+/** a chain of anchors, sampled into a centreline with normals.
+    Catmull-Rom through every anchor — the same curve the poser draws,
+    so a config exported there renders identically here. */
+export function chainSamples(
+  pts: { x: number; y: number }[],
+  tension: number,
+  steps = 96,
+): Sample[] {
+  if (pts.length < 2) return [];
+  const at = (k: number) => pts[clamp(k, 0, pts.length - 1)]!;
+  const segs: { x: number; y: number }[][] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = at(i - 1),
+      p1 = at(i),
+      p2 = at(i + 1),
+      p3 = at(i + 2);
+    const t = tension / 6;
+    segs.push([
+      p1,
+      { x: p1.x + (p2.x - p0.x) * t, y: p1.y + (p2.y - p0.y) * t },
+      { x: p2.x - (p3.x - p1.x) * t, y: p2.y - (p3.y - p1.y) * t },
+      p2,
+    ]);
+  }
+  const bez = (a: { x: number; y: number }[], t: number) => {
+    const u = 1 - t;
+    return {
+      x: u * u * u * a[0]!.x + 3 * u * u * t * a[1]!.x + 3 * u * t * t * a[2]!.x + t * t * t * a[3]!.x,
+      y: u * u * u * a[0]!.y + 3 * u * u * t * a[1]!.y + 3 * u * t * t * a[2]!.y + t * t * t * a[3]!.y,
+    };
+  };
+  const dbez = (a: { x: number; y: number }[], t: number) => {
+    const u = 1 - t;
+    return {
+      x: 3 * u * u * (a[1]!.x - a[0]!.x) + 6 * u * t * (a[2]!.x - a[1]!.x) + 3 * t * t * (a[3]!.x - a[2]!.x),
+      y: 3 * u * u * (a[1]!.y - a[0]!.y) + 6 * u * t * (a[2]!.y - a[1]!.y) + 3 * t * t * (a[3]!.y - a[2]!.y),
+    };
+  };
+  const out: Sample[] = [];
+  const m = segs.length;
+  for (let k = 0; k <= steps; k++) {
+    const u = k / steps;
+    const g = u * m;
+    const idx = Math.min(Math.floor(g), m - 1);
+    const lt = g - idx;
+    const seg = segs[idx]!;
+    const pt = bez(seg, lt);
+    const d = dbez(seg, lt);
+    const L = Math.hypot(d.x, d.y) || 1;
+    out.push({ x: pt.x, y: pt.y, nx: -d.y / L, ny: d.x / L, t: u });
+  }
+  return out;
+}
+
 /**
  * One arm — built, not grown. The limb is cut into discrete plates
  * with a visible gap and a pinned joint at every seam, so it reads as
  * a manufactured actuator rather than a tentacle. `width(t)` is the
  * half-width at t, so each rig keeps its own taper.
  */
+export interface LimbOpts {
+  /** how many plates the limb is cut into */
+  plates?: number;
+  /** seam gap, as a fraction of one plate's span */
+  gap?: number;
+  /** joint radius, as a fraction of the local half-width */
+  joint?: number;
+  /** hairline weight override */
+  hair?: number;
+}
+
 export function drawLimb(
   ctx: CanvasRenderingContext2D,
   pts: Sample[],
@@ -69,23 +134,43 @@ export function drawLimb(
   skin: Skin,
   unit: number,
   emphasis = 0,
+  opts: LimbOpts = {},
 ): void {
   if (pts.length < 2) return;
-  const hair = Math.max(0.8, unit * 0.013);
+  const hair = opts.hair ?? Math.max(0.8, unit * 0.013);
   const joint: RGB = mixRGB(skin.glow, skin.fg, 0.3);
 
   /** plate count — enough to read as segmented, few enough to read as parts */
-  const PLATES = 7;
-  const per = (pts.length - 1) / PLATES;
-  /** samples dropped at each seam; this is the gap between plates */
-  const gap = Math.max(0.34, per * 0.16);
+  const PLATES = Math.max(1, Math.round(opts.plates ?? 7));
+  const gapFrac = opts.gap ?? 0.16;
+  const jointFrac = opts.joint ?? 0.5;
+
+  // Plates are cut on the curve parameter, never on sample indices: cutting
+  // on indices let a high plate count with a wide gap starve a plate of
+  // samples, and it vanished without a word.
+  const span = 1 / PLATES;
+  const half = Math.min(span * gapFrac * 0.5, span * 0.45);
+  const sampleAt = (t: number): Sample => {
+    const g = clamp(t, 0, 1) * (pts.length - 1);
+    const i = Math.min(Math.floor(g), pts.length - 2);
+    const f = g - i;
+    const a = pts[i]!;
+    const b = pts[i + 1]!;
+    return {
+      x: a.x + (b.x - a.x) * f,
+      y: a.y + (b.y - a.y) * f,
+      nx: a.nx + (b.nx - a.nx) * f,
+      ny: a.ny + (b.ny - a.ny) * f,
+      t: a.t + (b.t - a.t) * f,
+    };
+  };
 
   for (let s = 0; s < PLATES; s++) {
-    const from = s * per + (s === 0 ? 0 : gap);
-    const to = (s + 1) * per - (s === PLATES - 1 ? 0 : gap);
+    const t0 = s * span + (s === 0 ? 0 : half);
+    const t1 = (s + 1) * span - (s === PLATES - 1 ? 0 : half);
     const slice: Sample[] = [];
-    for (let i = Math.ceil(from); i <= Math.floor(to); i++) slice.push(pts[i]!);
-    if (slice.length < 2) continue;
+    const STEP = 10;
+    for (let k = 0; k <= STEP; k++) slice.push(sampleAt(t0 + (t1 - t0) * (k / STEP)));
 
     // the plate: flat fill, hairline edge, square ends — a part with a
     // start and an end, not a length of hose
@@ -114,9 +199,8 @@ export function drawLimb(
   // the pinned joints, one per seam, sitting over the gap
   ctx.lineWidth = hair;
   for (let s = 1; s < PLATES; s++) {
-    const i = clamp(Math.round(s * per), 0, pts.length - 1);
-    const p = pts[i]!;
-    const r = Math.max(1.2, width(p.t) * 0.5);
+    const p = sampleAt(s * span);
+    const r = Math.max(1.2, width(p.t) * jointFrac);
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, TAU);
     ctx.fillStyle = rgba(skin.bodyDeep, 1);

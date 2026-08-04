@@ -242,20 +242,20 @@
    them, so moving a branch moves its arm.
    ------------------------------------------------------------ */
 
-/* Mantle in the middle of the stack, four branches up each side and
-   four down — so the arms radiate out of the skirt instead of all
-   hanging one way. With the mantle on the top row the top branch was
-   230px away and the bottom one 1070px, which drew eight near-vertical
-   parallel legs. Centred, the longest arm is about a third of that.
-   The middle column is the lane the tentacles run in. */
+/* THE ANIMAL GETS ITS OWN BAND, AT FULL SIZE.
+   The approved pose (src/data/pose.ts) is a wide starburst — eight arms
+   reaching about 2.9 mantle radii out in every direction. Flanking it
+   with two text columns squeezed it into a 270px lane; here it takes the
+   full width of the section and the eight branches read underneath it,
+   four to a column. crown.ts fits the pose to .crown__hub, so this box
+   is the only thing that decides how big the animal is. */
 .crown {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(178px, 17vw, 270px) minmax(0, 1fr);
-  grid-template-rows: repeat(4, minmax(0, auto));
-  column-gap: clamp(var(--s-4), 3.5vw, var(--s-6));
-  row-gap: var(--s-3);
-  align-items: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto repeat(4, minmax(0, auto));
+  column-gap: clamp(var(--s-4), 4vw, var(--s-7));
+  row-gap: var(--s-4);
   margin-top: var(--s-5);
   padding-block: var(--s-3) var(--s-5);
 }
@@ -269,14 +269,15 @@
   transition: opacity var(--d-slow) var(--e-drift);
 }
 
-/* the mantle's box — empty on purpose; the canvas draws into it.
-   It spans every row and centres itself, so the animal hangs level
-   with the middle of the branch stack. */
+/* the pose's box — empty on purpose; the canvas fits the animal into it.
+   The ratio is the pose's own extent, so no arm is ever clipped. */
 .crown__hub {
-  grid-column: 2;
-  grid-row: 1 / -1;
-  align-self: center;
-  min-height: clamp(150px, 16vw, 230px);
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  width: min(100%, 46rem);
+  aspect-ratio: 574 / 550;
+  margin-bottom: var(--s-4);
 }
 
 .crown__branches {
@@ -286,42 +287,22 @@
 .branch {
   position: relative;
   z-index: 1;
-  grid-row: var(--row);
+  /* row 1 is the animal, so branches start on row 2 */
+  grid-row: calc(var(--row) + 1);
   display: grid;
   gap: var(--s-1);
   padding-block: var(--s-2);
+  padding-left: var(--s-4);
+  border-left: var(--hair) solid var(--line);
   transition: translate var(--d-mid) var(--e-out);
 }
 
 .branch--l {
   grid-column: 1;
-  justify-items: end;
-  text-align: right;
-  border-right: var(--hair) solid var(--line);
-  padding-right: var(--s-4);
 }
 
 .branch--r {
-  grid-column: 3;
-  border-left: var(--hair) solid var(--line);
-  padding-left: var(--s-4);
-}
-
-/* the point the tentacle tip lands on — just outside the label */
-.branch__anchor {
-  position: absolute;
-  top: 50%;
-  width: 1px;
-  height: 1px;
-}
-
-/* sits on the branch's own rule, so the tip visibly touches the label */
-.branch--l .branch__anchor {
-  right: calc(var(--s-1) * -1);
-}
-
-.branch--r .branch__anchor {
-  left: calc(var(--s-1) * -1);
+  grid-column: 2;
 }
 
 .branch__no {
@@ -341,15 +322,14 @@
   transition: color var(--d-mid) var(--e-out);
 }
 
-/* held tight: the animal is only as tall as this column of text, so
-   every line saved here is a shorter arm */
+/* held tight: the animal is only as tall as this column of text */
 .branch__note {
   color: var(--fg-2);
   font-size: var(--t--1);
   line-height: 1.42;
   letter-spacing: 0;
   text-transform: none;
-  max-width: 34ch;
+  max-width: 38ch;
 }
 
 .branch__stack {
@@ -358,20 +338,9 @@
   gap: var(--s-1) var(--s-2);
 }
 
-.branch--l .branch__stack {
-  justify-content: end;
-}
-
 /* held: this arm has hold of this branch */
 .branch.is-held {
   border-color: var(--glow-dim);
-}
-
-.branch--l.is-held {
-  translate: calc(var(--s-2) * -1) 0;
-}
-
-.branch--r.is-held {
   translate: var(--s-2) 0;
 }
 
@@ -392,41 +361,18 @@
   .crown {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
-    row-gap: var(--s-5);
+    row-gap: var(--s-4);
   }
-  /* the animal moves to the left edge so the arms run straight down the
-     lane instead of reaching back across the copy */
   .crown__hub {
     grid-column: 1;
     grid-row: 1;
-    justify-self: start;
-    width: clamp(140px, 44vw, 210px);
-    min-height: clamp(125px, 32vw, 190px);
+    width: 100%;
   }
   .branch,
   .branch--l,
   .branch--r {
     grid-column: 1;
     grid-row: auto;
-    justify-items: start;
-    text-align: left;
-    border-right: 0;
-    border-left: var(--hair) solid var(--line);
-    padding-right: 0;
-    /* a lane down the left wide enough for eight arms to run in */
-    padding-left: clamp(var(--s-6), 20vw, var(--s-8));
-  }
-  .branch--l .branch__stack {
-    justify-content: start;
-  }
-  .branch--l .branch__anchor,
-  .branch--r .branch__anchor {
-    left: var(--s-3);
-    right: auto;
-  }
-  .branch--l.is-held,
-  .branch--r.is-held {
-    translate: var(--s-2) 0;
   }
 }
 
