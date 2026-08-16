@@ -55,11 +55,20 @@ export function mountCrown(root: HTMLElement): void {
   /** breathing room above the animal, and below the lowest label */
   const PAD_TOP = 24;
 
+  // Which label each arm holds. The right-hand arms are the mirror of the
+  // left, so their tips run bottom-to-top in arm order; handing them the
+  // branches in reverse makes the numbering read downward on both sides
+  // (01-04 down the left, 05-08 down the right) without moving an arm.
+  const labelFor = (i: number) => {
+    const n = pose.arms.length;
+    return i < n / 2 ? i : n - 1 - i + n / 2;
+  };
+
   const limbs: Limb[] = pose.arms.map((_, i) => ({
     pts: [],
     emphasis: 0,
     wanted: 0,
-    el: branches[i] ?? null,
+    el: branches[labelFor(i)] ?? null,
   }));
 
   /** below this the labels stack under the animal; CSS owns that case.
@@ -70,6 +79,10 @@ export function mountCrown(root: HTMLElement): void {
   const REACH = 14;
   /** the minimum air between two labels in a column */
   const STACK_GAP = 20;
+  /** how much of the room the animal takes; the rest goes to the type */
+  const BODY_SHARE = 0.8;
+  /** air outside a label, between it and the edge of the section */
+  const OUTER_PAD = 8;
 
   /** the chains actually drawn — the pose, with tips pulled onto their labels */
   const chains: { x: number; y: number }[][] = pose.arms.map((a) => a.map((p) => ({ ...p })));
@@ -95,12 +108,22 @@ export function mountCrown(root: HTMLElement): void {
       // cannot be squeezed to sit exactly on eight tips, so the text is laid
       // out first and each arm is then bent to reach the label it holds. The
       // animal follows the copy, which is the way round this section wants.
-      const labelW = clamp(root.clientWidth * 0.26, 210, 360);
-      const availW = root.clientWidth - 2 * (labelW + REACH);
+      //
+      // The two columns share one set of row positions. Stacking each side
+      // on its own label heights is what made the animal look lopsided: the
+      // left copy is longer than the right, so the tips ended up at
+      // different heights and the arms stopped being mirror images.
       const availH = Math.min(window.innerHeight * 0.9, 820);
-      scale = Math.min(availW / poseW, availH / poseH);
+      const firstGuess = clamp(root.clientWidth * 0.26, 210, 360);
+      scale =
+        Math.min((root.clientWidth - 2 * (firstGuess + REACH)) / poseW, availH / poseH) *
+        BODY_SHARE;
 
-      // measure the labels at their real width
+      // the animal is smaller than the space it was offered, so hand the
+      // slack back to the type rather than leaving it as margin
+      const tipXpx = Math.abs(pose.arms[0]![pose.arms[0]!.length - 1]!.x) * scale;
+      const labelW = clamp(root.clientWidth / 2 - tipXpx - REACH - OUTER_PAD, 210, 460);
+
       const heights: number[] = [];
       for (let i = 0; i < limbs.length; i++) {
         const el = limbs[i]!.el;
@@ -114,7 +137,7 @@ export function mountCrown(root: HTMLElement): void {
         heights.push(el.offsetHeight);
       }
 
-      // one column per side, in arm order down the page
+      // one column per side, ordered by where the tips actually sit
       const leftIdx: number[] = [];
       const rightIdx: number[] = [];
       for (let i = 0; i < limbs.length; i++) {
@@ -129,25 +152,40 @@ export function mountCrown(root: HTMLElement): void {
       leftIdx.sort(sortByPoseY);
       rightIdx.sort(sortByPoseY);
 
-      const colHeight = (idx: number[]) => {
-        let t = 0;
-        for (let k = 0; k < idx.length; k++) t += heights[idx[k]!]! + (k ? STACK_GAP : 0);
-        return t;
-      };
-      const tallest = Math.max(colHeight(leftIdx), colHeight(rightIdx));
+      // shared rows: a row is as tall as the taller of its two labels, so
+      // both sides land on identical y positions and the pose stays mirrored
+      const rows = Math.max(leftIdx.length, rightIdx.length);
+      const rowH: number[] = [];
+      for (let k = 0; k < rows; k++) {
+        const l = leftIdx[k] === undefined ? 0 : heights[leftIdx[k]!]!;
+        const r = rightIdx[k] === undefined ? 0 : heights[rightIdx[k]!]!;
+        rowH.push(Math.max(l, r));
+      }
+      let stackH = 0;
+      for (let k = 0; k < rows; k++) stackH += rowH[k]! + (k ? STACK_GAP : 0);
+
       const bodyH = poseH * scale;
-      const contentH = Math.max(tallest, bodyH);
+      const contentH = Math.max(stackH, bodyH);
 
       cx = root.clientWidth / 2;
       cy = PAD_TOP + (contentH - bodyH) / 2 + -ext.y0 * scale;
 
+      const rowTop: number[] = [];
+      let y = PAD_TOP + (contentH - stackH) / 2;
+      for (let k = 0; k < rows; k++) {
+        rowTop.push(y);
+        y += rowH[k]! + STACK_GAP;
+      }
+
       const place = (idx: number[]) => {
-        let y = PAD_TOP + (contentH - colHeight(idx)) / 2;
-        for (const i of idx) {
+        for (let k = 0; k < idx.length; k++) {
+          const i = idx[k]!;
           const el = limbs[i]!.el;
           const h = heights[i]!;
           const tip = pose.arms[i]![pose.arms[i]!.length - 1]!;
           const px = cx + tip.x * scale;
+          // centre the label in its row, so the tip meets its middle
+          const top = rowTop[k]! + (rowH[k]! - h) / 2;
           if (el) {
             if (tip.x < 0) {
               el.style.left = 'auto';
@@ -156,10 +194,10 @@ export function mountCrown(root: HTMLElement): void {
               el.style.right = 'auto';
               el.style.left = `${Math.round(px + REACH)}px`;
             }
-            el.style.top = `${Math.round(y)}px`;
+            el.style.top = `${Math.round(top)}px`;
           }
-          // bend the arm so its tip lands on the middle of this label
-          const wantY = (y + h / 2 - cy) / scale;
+          // bend the arm so its tip lands on the middle of this row
+          const wantY = (rowTop[k]! + rowH[k]! / 2 - cy) / scale;
           const chain = chains[i]!;
           const last = chain.length - 1;
           const dy = wantY - chain[last]!.y;
@@ -167,7 +205,6 @@ export function mountCrown(root: HTMLElement): void {
           if (last >= 1) {
             chain[last - 1] = { x: chain[last - 1]!.x, y: chain[last - 1]!.y + dy * 0.45 };
           }
-          y += h + STACK_GAP;
         }
       };
       place(leftIdx);
