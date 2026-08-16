@@ -242,22 +242,28 @@
    them, so moving a branch moves its arm.
    ------------------------------------------------------------ */
 
-/* THE ANIMAL GETS ITS OWN BAND, AT FULL SIZE.
-   The approved pose (src/data/pose.ts) is a wide starburst — eight arms
-   reaching about 2.9 mantle radii out in every direction. Flanking it
-   with two text columns squeezed it into a 270px lane; here it takes the
-   full width of the section and the eight branches read underneath it,
-   four to a column. crown.ts fits the pose to .crown__hub, so this box
-   is the only thing that decides how big the animal is. */
+/* EVERY ARM ENDS ON A LABEL.
+   The eight tips of the approved pose sit on two columns (src/data/pose.ts),
+   and crown.ts places each branch at the tip that holds it — inline top /
+   left / right, because the numbers come from the pose and only JS knows the
+   scale. CSS owns everything else: the type, the rule each label hangs off,
+   and the stacked fallback when the section is too narrow to flank. */
 .crown {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: auto repeat(4, minmax(0, auto));
-  column-gap: clamp(var(--s-4), 4vw, var(--s-7));
-  row-gap: var(--s-4);
   margin-top: var(--s-5);
   padding-block: var(--s-3) var(--s-5);
+}
+
+/* wide: crown.ts has set an explicit height and absolute label boxes */
+.crown--hung {
+  display: block;
+}
+
+/* narrow: the animal is a band and the labels flow underneath it */
+.crown:not(.crown--hung) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--s-4);
 }
 
 .crown__canvas {
@@ -269,15 +275,16 @@
   transition: opacity var(--d-slow) var(--e-drift);
 }
 
-/* the pose's box — empty on purpose; the canvas fits the animal into it.
-   The ratio is the pose's own extent, so no arm is ever clipped. */
+/* the animal's box. On wide layouts crown.ts sizes the pose from the label
+   columns instead, so this only matters when the labels are stacked. */
 .crown__hub {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  justify-self: center;
-  width: min(100%, 46rem);
+  width: 100%;
   aspect-ratio: 574 / 550;
-  margin-bottom: var(--s-4);
+  max-height: 70vh;
+}
+
+.crown--hung .crown__hub {
+  display: none;
 }
 
 .crown__branches {
@@ -287,22 +294,20 @@
 .branch {
   position: relative;
   z-index: 1;
-  /* row 1 is the animal, so branches start on row 2 */
-  grid-row: calc(var(--row) + 1);
   display: grid;
   gap: var(--s-1);
-  padding-block: var(--s-2);
-  padding-left: var(--s-4);
+  padding-inline: var(--s-3);
   border-left: var(--hair) solid var(--line);
-  transition: translate var(--d-mid) var(--e-out);
+  transition: translate var(--d-mid) var(--e-out), border-color var(--d-fast) var(--e-out);
 }
 
-.branch--l {
-  grid-column: 1;
-}
-
-.branch--r {
-  grid-column: 2;
+/* the left column reads right-to-left into the animal, so its rule sits on
+   the side the arm arrives from */
+.crown--hung .branch--l {
+  justify-items: end;
+  text-align: right;
+  border-left: 0;
+  border-right: var(--hair) solid var(--line);
 }
 
 .branch__no {
@@ -322,14 +327,12 @@
   transition: color var(--d-mid) var(--e-out);
 }
 
-/* held tight: the animal is only as tall as this column of text */
 .branch__note {
   color: var(--fg-2);
   font-size: var(--t--1);
-  line-height: 1.42;
+  line-height: 1.4;
   letter-spacing: 0;
   text-transform: none;
-  max-width: 38ch;
 }
 
 .branch__stack {
@@ -338,9 +341,20 @@
   gap: var(--s-1) var(--s-2);
 }
 
-/* held: this arm has hold of this branch */
+.crown--hung .branch--l .branch__stack {
+  justify-content: end;
+}
+
+/* held: this arm has hold of this label */
 .branch.is-held {
   border-color: var(--glow-dim);
+}
+
+.crown--hung .branch--l.is-held {
+  translate: calc(var(--s-2) * -1) 0;
+}
+
+.crown--hung .branch--r.is-held {
   translate: var(--s-2) 0;
 }
 
@@ -355,25 +369,6 @@
 .branch.is-held .tag {
   border-color: var(--glow-dim);
   color: var(--fg-2);
-}
-
-@media (width < 64rem) {
-  .crown {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto;
-    row-gap: var(--s-4);
-  }
-  .crown__hub {
-    grid-column: 1;
-    grid-row: 1;
-    width: 100%;
-  }
-  .branch,
-  .branch--l,
-  .branch--r {
-    grid-column: 1;
-    grid-row: auto;
-  }
 }
 
 /* ------------------------------------------------------------

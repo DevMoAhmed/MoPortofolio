@@ -11,8 +11,12 @@
    fill whatever box the layout hands it, so it renders at full
    size in a wide window without a coordinate changing here.
 
-   Hovering a branch still lights its arm — branch n holds arm n,
-   by index rather than by a drawn contact.
+   Every arm ends on a branch label: the eight tips sit on two
+   columns, and each label is placed at the tip that holds it, so
+   the contact is real rather than implied. Because the labels are
+   positioned from the pose, moving a tip in the poser moves its
+   label here — the layout follows the animal, not the other way
+   round.
    ============================================================ */
 
 import { clamp, readSkin } from './palette';
@@ -48,6 +52,8 @@ export function mountCrown(root: HTMLElement): void {
   let unit = 100;
   let cx = 0;
   let cy = 0;
+  /** breathing room above the animal, and below the lowest label */
+  const PAD_TOP = 24;
 
   const limbs: Limb[] = pose.arms.map((_, i) => ({
     pts: [],
@@ -56,7 +62,140 @@ export function mountCrown(root: HTMLElement): void {
     el: branches[i] ?? null,
   }));
 
+  /** below this the labels stack under the animal; CSS owns that case.
+      Measured on the section, not the window: it is the section that has to
+      fit an animal plus two columns of type. */
+  const WIDE = 54 * 16;
+  /** the gap between an arm's tip and the label it holds */
+  const REACH = 14;
+  /** the minimum air between two labels in a column */
+  const STACK_GAP = 20;
+
+  /** the chains actually drawn — the pose, with tips pulled onto their labels */
+  const chains: { x: number; y: number }[][] = pose.arms.map((a) => a.map((p) => ({ ...p })));
+
   function measure() {
+    const wide = root.clientWidth >= WIDE;
+    root.classList.toggle('crown--hung', wide);
+    const ext = poseExtent(pose);
+    const poseW = ext.x1 - ext.x0;
+    const poseH = ext.y1 - ext.y0;
+    let scale: number;
+
+    // start from the approved pose every time, so repeated measures cannot
+    // walk the tips somewhere they were never asked to go
+    for (let i = 0; i < chains.length; i++) {
+      for (let k = 0; k < chains[i]!.length; k++) {
+        chains[i]![k] = { ...pose.arms[i]![k]! };
+      }
+    }
+
+    if (wide) {
+      // The label columns are the fixed quantity: eight boxes of real text
+      // cannot be squeezed to sit exactly on eight tips, so the text is laid
+      // out first and each arm is then bent to reach the label it holds. The
+      // animal follows the copy, which is the way round this section wants.
+      const labelW = clamp(root.clientWidth * 0.26, 210, 360);
+      const availW = root.clientWidth - 2 * (labelW + REACH);
+      const availH = Math.min(window.innerHeight * 0.9, 820);
+      scale = Math.min(availW / poseW, availH / poseH);
+
+      // measure the labels at their real width
+      const heights: number[] = [];
+      for (let i = 0; i < limbs.length; i++) {
+        const el = limbs[i]!.el;
+        if (!el) {
+          heights.push(0);
+          continue;
+        }
+        el.style.position = 'absolute';
+        el.style.width = `${Math.round(labelW)}px`;
+        el.style.top = '0px';
+        heights.push(el.offsetHeight);
+      }
+
+      // one column per side, in arm order down the page
+      const leftIdx: number[] = [];
+      const rightIdx: number[] = [];
+      for (let i = 0; i < limbs.length; i++) {
+        const tip = pose.arms[i]![pose.arms[i]!.length - 1]!;
+        (tip.x < 0 ? leftIdx : rightIdx).push(i);
+      }
+      const sortByPoseY = (a: number, b: number) => {
+        const ay = pose.arms[a]![pose.arms[a]!.length - 1]!.y;
+        const by = pose.arms[b]![pose.arms[b]!.length - 1]!.y;
+        return ay - by;
+      };
+      leftIdx.sort(sortByPoseY);
+      rightIdx.sort(sortByPoseY);
+
+      const colHeight = (idx: number[]) => {
+        let t = 0;
+        for (let k = 0; k < idx.length; k++) t += heights[idx[k]!]! + (k ? STACK_GAP : 0);
+        return t;
+      };
+      const tallest = Math.max(colHeight(leftIdx), colHeight(rightIdx));
+      const bodyH = poseH * scale;
+      const contentH = Math.max(tallest, bodyH);
+
+      cx = root.clientWidth / 2;
+      cy = PAD_TOP + (contentH - bodyH) / 2 + -ext.y0 * scale;
+
+      const place = (idx: number[]) => {
+        let y = PAD_TOP + (contentH - colHeight(idx)) / 2;
+        for (const i of idx) {
+          const el = limbs[i]!.el;
+          const h = heights[i]!;
+          const tip = pose.arms[i]![pose.arms[i]!.length - 1]!;
+          const px = cx + tip.x * scale;
+          if (el) {
+            if (tip.x < 0) {
+              el.style.left = 'auto';
+              el.style.right = `${Math.round(root.clientWidth - px + REACH)}px`;
+            } else {
+              el.style.right = 'auto';
+              el.style.left = `${Math.round(px + REACH)}px`;
+            }
+            el.style.top = `${Math.round(y)}px`;
+          }
+          // bend the arm so its tip lands on the middle of this label
+          const wantY = (y + h / 2 - cy) / scale;
+          const chain = chains[i]!;
+          const last = chain.length - 1;
+          const dy = wantY - chain[last]!.y;
+          chain[last] = { x: chain[last]!.x, y: wantY };
+          if (last >= 1) {
+            chain[last - 1] = { x: chain[last - 1]!.x, y: chain[last - 1]!.y + dy * 0.45 };
+          }
+          y += h + STACK_GAP;
+        }
+      };
+      place(leftIdx);
+      place(rightIdx);
+
+      const wantH = `${Math.round(contentH + PAD_TOP * 2)}px`;
+      if (root.style.height !== wantH) root.style.height = wantH;
+    } else {
+      // narrow: the animal is a band, the labels flow underneath it
+      for (const limb of limbs) {
+        const el = limb.el;
+        if (!el) continue;
+        el.style.position = '';
+        el.style.width = '';
+        el.style.left = '';
+        el.style.right = '';
+        el.style.top = '';
+      }
+      root.style.height = '';
+      const box = stage.getBoundingClientRect();
+      scale = Math.min(box.width / poseW, box.height / poseH);
+      const base = root.getBoundingClientRect();
+      cx = box.left - base.left + box.width / 2 - ((ext.x0 + ext.x1) / 2) * scale;
+      cy = box.top - base.top + box.height / 2 - ((ext.y0 + ext.y1) / 2) * scale;
+    }
+
+    unit = 100 * scale;
+
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     w = root.clientWidth;
     h = root.clientHeight;
@@ -66,24 +205,9 @@ export function mountCrown(root: HTMLElement): void {
     canvas.style.height = `${h}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // fit the pose into the stage box, then centre it there
-    const base = root.getBoundingClientRect();
-    const box = stage.getBoundingClientRect();
-    const ext = poseExtent(pose);
-    const scale = Math.min(
-      box.width / (ext.x1 - ext.x0),
-      box.height / (ext.y1 - ext.y0),
-    );
-    unit = 100 * scale;
-    cx = box.left - base.left + box.width / 2 - ((ext.x0 + ext.x1) / 2) * scale;
-    cy = box.top - base.top + box.height / 2 - ((ext.y0 + ext.y1) / 2) * scale;
-
     for (let i = 0; i < limbs.length; i++) {
-      const chain = pose.arms[i]!.map((a) => ({
-        x: cx + a.x * scale,
-        y: cy + a.y * scale,
-      }));
-      limbs[i]!.pts = chainSamples(chain, pose.tension);
+      const placed = chains[i]!.map((a) => ({ x: cx + a.x * scale, y: cy + a.y * scale }));
+      limbs[i]!.pts = chainSamples(placed, pose.tension);
     }
   }
 
@@ -153,12 +277,27 @@ export function mountCrown(root: HTMLElement): void {
     raf = requestAnimationFrame(frame);
   }
 
-  const ro = new ResizeObserver(() => {
+  // Re-fit on any size change, synchronously.
+  //
+  // Deferring this into requestAnimationFrame looks tidier and is wrong: a
+  // backgrounded tab or a hidden preview pane stops issuing frames, so the
+  // relayout never lands and the section stays frozen at whatever width it
+  // was first measured at. measure() costs about a millisecond, so it runs
+  // on the spot, with a short guard so a burst of notifications collapses
+  // into one pass.
+  let lastFit = -1;
+  const relayout = () => {
+    const now = performance.now();
+    if (now - lastFit < 16) return;
+    lastFit = now;
     measure();
     still();
     restart();
-  });
+  };
+  const ro = new ResizeObserver(relayout);
   ro.observe(root);
+  if (root.parentElement) ro.observe(root.parentElement);
+  window.addEventListener('resize', relayout);
 
   const io = new IntersectionObserver(
     (entries) => {

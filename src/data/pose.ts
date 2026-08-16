@@ -10,6 +10,14 @@
 
    To change the pose: open the poser, shape it, hit COPY CONFIG,
    and replace the object below. Nothing else has to change.
+
+   One edit was made to the exported chains: the four tips per side
+   were pulled onto a single column (x = ±251.95) and spread evenly
+   down it, because each tip carries a branch label and an irregular
+   column put two labels 89px apart and two 218px apart. The rest of
+   every chain is untouched; only the last two anchors moved, the
+   second-to-last by 40-45% of the tip's delta so the arm still
+   arrives on a curve.
    ============================================================ */
 
 export interface Anchor {
@@ -60,61 +68,69 @@ export const pose: Pose = {
   packetSeconds: 3.8,
   packetSize: 1.05,
   arms: [
+    // arm 1 — tip holds branch 1
     [
       { x: -64.73, y: -71.53 },
       { x: -104.64, y: -133.71 },
       { x: -164.97, y: -175.48 },
-      { x: -130.63, y: -246.01 },
-      { x: -235.5, y: -230.23 },
+      { x: -137.21, y: -246.01 },
+      { x: -251.95, y: -230.23 },
     ],
+    // arm 2 — tip holds branch 2
     [
       { x: -80.51, y: -2.85 },
       { x: -162.18, y: -66.89 },
       { x: -208.58, y: -42.76 },
-      { x: -216.47, y: -126.29 },
-      { x: -255.84, y: -131.02 },
+      { x: -214.91, y: -97.71 },
+      { x: -251.95, y: -67.51 },
     ],
+    // arm 3 — tip holds branch 3
     [
       { x: -73.55, y: 46.33 },
       { x: -136.66, y: 66.75 },
       { x: -193.27, y: 21.28 },
-      { x: -215.55, y: 97.38 },
-      { x: -264.27, y: 15.71 },
+      { x: -210.62, y: 133.16 },
+      { x: -251.95, y: 95.21 },
     ],
+    // arm 4 — tip holds branch 4
     [
       { x: -43.85, y: 78.82 },
       { x: -100.93, y: 164.2 },
       { x: -179.81, y: 169.77 },
-      { x: -149.65, y: 257.94 },
-      { x: -252.2, y: 257.93 },
+      { x: -149.55, y: 257.94 },
+      { x: -251.95, y: 257.93 },
     ],
+    // arm 5 — mirror of arm 4, holds branch 5
     [
       { x: 43.85, y: 78.82 },
       { x: 100.93, y: 164.2 },
       { x: 179.81, y: 169.77 },
-      { x: 149.65, y: 257.94 },
-      { x: 252.2, y: 257.93 },
+      { x: 149.55, y: 257.94 },
+      { x: 251.95, y: 257.93 },
     ],
+    // arm 6 — mirror of arm 3, holds branch 6
     [
       { x: 73.55, y: 46.33 },
       { x: 136.66, y: 66.75 },
       { x: 193.27, y: 21.28 },
-      { x: 215.55, y: 97.38 },
-      { x: 264.27, y: 15.71 },
+      { x: 210.62, y: 133.16 },
+      { x: 251.95, y: 95.21 },
     ],
+    // arm 7 — mirror of arm 2, holds branch 7
     [
       { x: 80.51, y: -2.85 },
       { x: 162.18, y: -66.89 },
       { x: 208.58, y: -42.76 },
-      { x: 216.47, y: -126.29 },
-      { x: 255.84, y: -131.02 },
+      { x: 214.91, y: -97.71 },
+      { x: 251.95, y: -67.51 },
     ],
+    // arm 8 — mirror of arm 1, holds branch 8
     [
       { x: 64.73, y: -71.53 },
       { x: 104.64, y: -133.71 },
       { x: 164.97, y: -175.48 },
-      { x: 130.63, y: -246.01 },
-      { x: 235.5, y: -230.23 },
+      { x: 137.21, y: -246.01 },
+      { x: 251.95, y: -230.23 },
     ],
   ],
 };
