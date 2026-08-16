@@ -24,11 +24,15 @@ import { type Sample, chainSamples, drawLimb, drawMantle, drawPacket } from './r
 import { pose, poseExtent } from '../data/pose';
 
 interface Limb {
-  /** the pose chain, already scaled and placed in canvas space */
+  /** the resting chain, already scaled and placed in canvas space */
+  placed: { x: number; y: number }[];
+  /** the sampled centreline actually drawn */
   pts: Sample[];
   /** 0 resting → 1 hovered or focused */
   emphasis: number;
   wanted: number;
+  /** the emphasis the current pts were built at, so we only resample on change */
+  built: number;
   el: HTMLElement | null;
 }
 
@@ -54,6 +58,9 @@ export function mountCrown(root: HTMLElement): void {
   let cy = 0;
   /** breathing room above the animal, and below the lowest label */
   const PAD_TOP = 24;
+  /** where the aperture is looking, and where it wants to look */
+  let lookNow = pose.apOff;
+  let lookWant = pose.apOff;
 
   // Which label each arm holds. The right-hand arms are the mirror of the
   // left, so their tips run bottom-to-top in arm order; handing them the
@@ -65,9 +72,11 @@ export function mountCrown(root: HTMLElement): void {
   };
 
   const limbs: Limb[] = pose.arms.map((_, i) => ({
+    placed: [],
     pts: [],
     emphasis: 0,
     wanted: 0,
+    built: -1,
     el: branches[labelFor(i)] ?? null,
   }));
 
@@ -243,9 +252,38 @@ export function mountCrown(root: HTMLElement): void {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     for (let i = 0; i < limbs.length; i++) {
-      const placed = chains[i]!.map((a) => ({ x: cx + a.x * scale, y: cy + a.y * scale }));
-      limbs[i]!.pts = chainSamples(placed, pose.tension);
+      limbs[i]!.placed = chains[i]!.map((a) => ({ x: cx + a.x * scale, y: cy + a.y * scale }));
+      limbs[i]!.built = -1;
     }
+    for (const limb of limbs) rebuild(limb);
+  }
+
+  /**
+   * The reach: on hover an arm straightens and extends a little toward the
+   * label it holds, strongest at the tip and fading to nothing at the mantle.
+   * It is a shape change, not a wobble — the arm holds the new shape for as
+   * long as you are on the branch, and eases back when you leave.
+   */
+  function rebuild(limb: Limb): void {
+    const src = limb.placed;
+    if (src.length < 2) return;
+    const e = limb.emphasis;
+    limb.built = e;
+    if (e < 0.002) {
+      limb.pts = chainSamples(src, pose.tension);
+      return;
+    }
+    const flexed = src.map((p, k) => {
+      if (k === 0) return { x: p.x, y: p.y };
+      const prev = src[k - 1]!;
+      const dx = p.x - prev.x;
+      const dy = p.y - prev.y;
+      const L = Math.hypot(dx, dy) || 1;
+      // outer anchors move most: the arm reaches rather than flaps
+      const grip = Math.pow(k / (src.length - 1), 1.6) * e * unit * 0.13;
+      return { x: p.x + (dx / L) * grip, y: p.y + (dy / L) * grip };
+    });
+    limb.pts = chainSamples(flexed, pose.tension);
   }
 
   const widthAt = (t: number) => {
@@ -283,21 +321,43 @@ export function mountCrown(root: HTMLElement): void {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(pose.mw, pose.mh);
-    drawMantle(ctx, 0, 0, unit, skin, { lookX: pose.apOff });
+    drawMantle(ctx, 0, 0, unit, skin, { lookX: lookNow });
     ctx.restore();
   }
 
   let raf = 0;
   let onScreen = true;
   let last = performance.now();
+  /** when the loop last painted; used to spot a throttled tab */
+  let lastFrameAt = 0;
+
+  /**
+   * Easing needs frames, and a backgrounded tab or a hidden preview pane
+   * stops issuing them. When that happens, land on the target value and
+   * paint once, so the aperture and the reach still respond instead of
+   * silently doing nothing.
+   */
+  function nudge(): void {
+    if (performance.now() - lastFrameAt < 300) return;
+    lookNow = lookWant;
+    for (const limb of limbs) {
+      limb.emphasis = limb.wanted;
+      rebuild(limb);
+    }
+    still();
+  }
 
   function frame(now: number) {
     const dt = clamp((now - last) / 1000, 0, 0.05);
     last = now;
-    // geometry is fixed; only the hover weighting and the packets move
+    // the shape only changes where a branch is being held; everything else
+    // is paint and packets
     for (const limb of limbs) {
       limb.emphasis += (limb.wanted - limb.emphasis) * clamp(dt * 5, 0, 1);
+      if (Math.abs(limb.emphasis - limb.built) > 0.004) rebuild(limb);
     }
+    lookNow += (lookWant - lookNow) * clamp(dt * 6, 0, 1);
+    lastFrameAt = now;
     compose(now);
     if (onScreen && !reduced) raf = requestAnimationFrame(frame);
   }
@@ -358,6 +418,19 @@ export function mountCrown(root: HTMLElement): void {
     attributeFilter: ['data-skin'],
   });
 
+  // The aperture follows the pointer across the section, and snaps its
+  // attention to whichever branch you are actually on.
+  root.addEventListener('pointermove', (e) => {
+    if (reduced) return;
+    const r = root.getBoundingClientRect();
+    lookWant = clamp((e.clientX - r.left - cx) / (unit * 2.4), -1, 1);
+    nudge();
+  });
+  root.addEventListener('pointerleave', () => {
+    lookWant = pose.apOff;
+    nudge();
+  });
+
   for (const limb of limbs) {
     const el = limb.el;
     if (!el) continue;
@@ -365,12 +438,17 @@ export function mountCrown(root: HTMLElement): void {
       for (const l of limbs) l.wanted = 0;
       limb.wanted = 1;
       el.classList.add('is-held');
+      const tip = limb.placed[limb.placed.length - 1];
+      if (tip) lookWant = clamp((tip.x - cx) / (unit * 2.4), -1, 1);
       if (reduced) still();
+      else nudge();
     };
     const off = () => {
       limb.wanted = 0;
       el.classList.remove('is-held');
+      lookWant = pose.apOff;
       if (reduced) still();
+      else nudge();
     };
     el.addEventListener('pointerenter', on);
     el.addEventListener('focusin', on);
